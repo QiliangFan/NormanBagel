@@ -3,11 +3,11 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
-import scipy.stats
 from scipy.stats import norm
 
 from tensorflow.keras import Model, layers
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.losses import MeanAbsoluteError
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -15,11 +15,10 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 def standardize(values: np.ndarray, std, mean) -> np.ndarray:
     return (values - mean) / std
 
-
 class Litmus(Model):
     epochs = 2000
     confidence = 0.9999
-    THRESHOLD = norm.ppf(1 - (1 - confidence)/2)
+    THRESHOLD: float = norm.ppf(1 - (1 - confidence)/2)
 
     def __init__(self, out_dim, verbose=1):
         super().__init__()
@@ -32,7 +31,7 @@ class Litmus(Model):
         ])
 
     @staticmethod
-    def run(change_idx: int, study_data: np.ndarray, control_data: np.ndarray, ts: np.ndarray) -> np.ndarray:
+    def run(change_idx: int, study_data: np.ndarray, control_data: np.ndarray, ts: np.ndarray) -> Tuple[Union[float, np.ndarray], float]:
         """
         Recommendation: 
         >>> len(study_data) == len(control_data)
@@ -42,10 +41,31 @@ class Litmus(Model):
             control_data), f"expected study_data and control_data to have the same length, but got {len(study_data)} and {len(control_data)}"
 
         # split data
-        study_before, study_after = Litmus.split(change_idx, study_data)
-        control_before, control_after = Litmus.split(change_idx, study_data)
+        study_before, study_after, control_before, control_after, litmus_window_size = Litmus.split_data(change_idx, study_data, control_data)
 
-        #
+        # data
+        train_data = tf.data.Dataset.from_tensor_slices((control_before, study_after)).batch(litmus_window_size)
+        control_before_data = tf.data.Dataset.from_tensor_slices(control_before).batch(litmus_window_size)
+        control_after_data = tf.data.Dataset.from_tensor_slices(study_after).batch(litmus_window_size)
+
+        # train and test
+        litmus = Litmus(out_dim=litmus_window_size)
+        sgd = SGD(1e-3, momentum=0.2)
+        loss = MeanAbsoluteError()
+        litmus.compile(sgd, loss)
+        litmus.fit(train_data, epochs=2000)
+        pred_control_before = litmus.predict(control_before_data)[0]  # first batch 
+        pred_control_after = litmus.predict(control_after_data)[0]  # first batch
+
+        diff_before = Litmus.compute_diff(pred_control_before, control_before)
+        diff_after = Litmus.compute_diff(pred_control_after, control_after)
+
+        _, u_yx, vx = Litmus.compute_mean_placements(diff_after, diff_before)
+        _, u_xy, vy = Litmus.compute_mean_placements(diff_before, diff_after)
+
+        critical_score = Litmus.critical_value(u_yx, u_xy, vx, vy, litmus_window_size)
+
+        return critical_score, Litmus.THRESHOLD
 
     def call(self, inputs, **kwargs) -> tf.Tensor:
         return self.linear_regression(inputs)
@@ -77,10 +97,30 @@ class Litmus(Model):
 
         litmus_window_size: int = min(
             [study_before_window, study_after_window, control_before_window, control_after_window])
-        return study_data[change_idx+1-litmus_window_size:change_idx+1], study_data[change_idx+1:change_idx+1+litmus_window_size],
-        control_data[change_idx+1-litmus_window_size:change_idx +
-                     1], control_data[change_idx+1:change_idx+1+litmus_window_size],
-        litmus_window_size
+        return (study_data[change_idx+1-litmus_window_size:change_idx+1], 
+                study_data[change_idx+1:change_idx+1+litmus_window_size], 
+                control_data[change_idx+1-litmus_window_size:change_idx +1], 
+                control_data[change_idx+1:change_idx+1+litmus_window_size],
+                litmus_window_size)
+
+    @staticmethod
+    def compute_diff(pred_data: np.ndarray, data: np.ndarray) -> np.ndarray:
+        return data - pred_data
+
+    @staticmethod
+    def compute_mean_placements(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        u_yx_i = []
+        for _x in x:
+            u_yx_i.append(len(np.where(_x > y)[0]))
+        u_yx_i = np.asarray(u_yx_i)
+        u_yx = np.mean(u_yx_i)
+        v_x = np.pow(np.std(u_yx_i), 2) 
+
+        return np.asarray(u_yx_i), np.asarray(u_yx), np.asarray(v_x)
+
+    @staticmethod
+    def critical_value(u_yx: np.ndarray, u_xy, v_x, v_y, window_size):
+        return 0.5 * window_size * (u_yx - u_xy) / np.pow((u_xy*u_yx + v_x + v_y), 0.5)
 
     def __call__(self, *args, **kwargs) -> tf.Tensor:
         return super(Litmus, self).__call__(*args, **kwargs)
