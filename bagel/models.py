@@ -44,7 +44,7 @@ class ConditionalVariationalAutoencoder(tf.keras.Model):
         concatted = tf.keras.layers.Concatenate()([z, y])
         x_mean, x_std = self._decoder(concatted)
         p_xz = tfp.distributions.Normal(x_mean, x_std)
-        return q_zx, p_xz, z
+        return q_zx, p_xz, z, x_mean, x_std
 
     def get_config(self):
         return super().get_config()
@@ -94,7 +94,7 @@ class Bagel:
     def _missing_imputation(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor, steps: int = 10) -> tf.Tensor:
         cond = tf.cast(normal, 'bool')
         for _ in range(steps):
-            _, p_xz, _ = self._model([x, y])
+            _, p_xz, _, _, _ = self._model([x, y])
             reconstruction = p_xz.sample()[0]
             x = tf.where(cond, x, reconstruction)
         return x
@@ -103,7 +103,7 @@ class Bagel:
     def _train_step(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor) -> tf.Tensor:
         with tf.GradientTape() as tape:
             y = tf.keras.layers.Dropout(self._dropout_rate)(y)
-            q_zx, p_xz, z = self._model([x, y])
+            q_zx, p_xz, z, _, _ = self._model([x, y])
             loss = -self._m_elbo(x, z, normal, q_zx, self._p_z, p_xz)
             loss += tf.math.add_n(self._model.losses)
         self._optimizer.minimize(loss, self._model.trainable_weights, tape=tape)
@@ -111,7 +111,7 @@ class Bagel:
 
     @tf.function
     def _validation_step(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor) -> tf.Tensor:
-        q_zx, p_xz, z = self._model([x, y])
+        q_zx, p_xz, z, _, _ = self._model([x, y])
         val_loss = -self._m_elbo(x, z, normal, q_zx, self._p_z, p_xz)
         val_loss += tf.math.add_n(self._model.losses)
         return val_loss
@@ -119,10 +119,10 @@ class Bagel:
     @tf.function
     def _test_step(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor) -> Tuple[tf.Tensor, np.ndarray]:
         x = self._missing_imputation(x, y, normal)
-        q_zx, p_xz, z = self._model([x, y], n_samples=128)
+        q_zx, p_xz, z, x_mean, x_std = self._model([x, y], n_samples=128)
         test_loss = -self._m_elbo(x, z, normal, q_zx, self._p_z, p_xz)
         log_p_xz = p_xz.log_prob(x)
-        return test_loss, log_p_xz
+        return test_loss, log_p_xz, x_mean, x_std
 
     def fit(self,
             kpi: bagel.data.KPI,
@@ -206,14 +206,19 @@ class Bagel:
             print('Testing Epoch')
             progbar = tf.keras.utils.Progbar(len(dataset), interval=0.5)
         anomaly_scores = []
+        x_mean = []
+        x_std = []
         for batch in dataset:
-            test_loss, log_p_xz = self._test_step(*batch)
+            test_loss, log_p_xz, _mean, _std = self._test_step(*batch)
             anomaly_scores.extend(-np.mean(log_p_xz[:, :, -1], axis=0))
+            x_mean.extend(np.mean(_mean[:, :, -1], axis=0))
+            x_std.extend(np.mean(_std[:, :, -1], axis=0))
             if verbose == 1:
                 progbar.add(1, values=[('test_loss', test_loss)])
         anomaly_scores = np.asarray(anomaly_scores, dtype=np.float32)
-        anomaly_scores = np.concatenate([np.ones(self._window_size - 1) * np.min(anomaly_scores), anomaly_scores])
-        return anomaly_scores
+        x_mean = np.asarray(x_mean, dtype=np.float32)
+        x_std = np.asarray(x_std, dtype=np.float32)
+        return anomaly_scores, x_mean, x_std
 
     def save(self, prefix: str):
         self._checkpoint.write(prefix)
