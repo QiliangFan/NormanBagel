@@ -1,6 +1,7 @@
 import argparse
 import os
-from typing import Tuple
+from tools.plot import integrate_plot
+from typing import Sequence, Tuple
 from glob import glob
 from multiprocessing import Pool
 import bagel
@@ -8,7 +9,8 @@ from tools import mad
 import yaml
 from spot import run_spot
 from preprocess import make_label
-
+import sys
+import re
 
 # path
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -18,14 +20,25 @@ PARAM_SAVE = os.path.join(PROJECT_PATH, "variables")
 
 def load_hyper_param():
     hyperparam_path = os.path.join(CONFIG_ROOT, "hyper_params.yaml")
-    hyperparam = yaml.load(hyperparam_path, Loader=yaml.FullLoader)
+    with open(hyperparam_path, "r") as fp:
+        hyperparam = yaml.load(fp, Loader=yaml.FullLoader)
     return hyperparam
 
 
 def load_global_config():
     global_config_path = os.path.join(CONFIG_ROOT, "global_config.yaml")
-    global_config = yaml.load(global_config_path, Loader=yaml.FullLoader)
+    with open(global_config_path, "r") as fp:
+        global_config = yaml.load(fp, Loader=yaml.FullLoader)
     return global_config
+
+
+def filter_between_train_test(path: str, file_list: Sequence[str]):
+    path = "/".join(path.split("/")[-2:])
+    for file in file_list:
+        file = "/".join(file.split("/")[-2:])
+        if path == file:
+            return True
+    return False
 
 
 def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: dict):
@@ -74,29 +87,40 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     x_mean = x_mean[bagel_window_size-1:]
     x_std = x_std[bagel_window_size-1:]
     _, study_test_kpi = study_test_kpi.split_by_indices(bagel_window_size-1)
-    _, control_test_kpi = control_test_kpi.split_by_indices(bagel_window_size-1)
+    _, control_test_kpi = control_test_kpi.split_by_indices(
+        bagel_window_size-1)
 
     # mad
     mad_filter = mad(study_test_kpi.raw_values, name, mad_window_size)
 
     # spot
-    pred_label, spot_threshold = run_spot(train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
+    pred_label, spot_threshold = run_spot(
+        train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
 
     # plot
-    
+    integrate_plot(study_test_kpi,
+                   control_test_kpi,
+                   anomaly_scores,
+                   x_mean,
+                   x_std,
+                   pred_label,
+                   spot_threshold,
+                   name,
+                   svc)
 
 
 def main():
     # data_root 不推荐由程序来创建
-    data_root = global_config.DATA_ROOT
+    data_root = global_config["DATA_ROOT"]
     assert os.path.exists(
         data_root), f"data root must exists, but {data_root} is not found..."
     train_root = os.path.join(data_root, "train")
     test_root = os.path.join(data_root, "test")
-    input_root = os.path.join(data_root, "input")
+    # input_root = os.path.join(data_root, "input")
+    input_root = "/home/sharespace/fanqiliang/istio"
     assert os.path.exists(train_root) and os.path.exists(
         test_root), f"{train_root} and {test_root} must exist all !"
-    
+
     make_label(global_config, input_root, test_root)
 
     study_train_files = glob(os.path.join(
@@ -119,10 +143,13 @@ def main():
                           for file in study_test_files]
 
     # 训练数据和测试数据对照组\实验组相互对应
-    study_test_files = list(filter(lambda file: file.replace(
-        test_root, train_root) in study_train_files, study_test_files))
+    tmp = []
+    for f_test in study_test_files:
+        if filter_between_train_test(f_test, study_train_files):
+            tmp.append(f_test)
+    study_test_files = tmp
     study_train_files = [file.replace(test_root, train_root)
-                         for file in study_test_files]
+                         for file in study_test_files if os.path.exists(file.replace(test_root, train_root))]
     control_test_files = [file.replace("219", "220")
                           for file in study_test_files]
     control_train_files = [file.replace("219", "220")

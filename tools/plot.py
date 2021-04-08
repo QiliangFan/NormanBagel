@@ -18,9 +18,9 @@ def integrate_plot(study_test_kpi: KPI,
                    anomaly_score: np.ndarray,
                    x_mean: np.ndarray,
                    x_std: np.ndarray,
-                   pred_label, 
+                   pred_label,
                    threshold,
-                   name, 
+                   name,
                    svc):
     """
     图比较多时不适合加上用英文图例`
@@ -38,9 +38,12 @@ def integrate_plot(study_test_kpi: KPI,
         ax[i].xaxis.set_major_locator(mdates.HourLocator(interval=1))
 
     # raw kpi
+    pred_anomaly = np.copy(study_test_kpi.raw_values)
+    pred_anomaly[np.where(anomaly_score == 0)] = np.inf
     ax[0].set_title("原始KPI")
     ax[0].plot(dates, study_test_kpi.raw_values, label="实验组原始数据")
     ax[0].plot(dates, control_test_kpi.raw_values, label="对照组原始数据")
+    ax[0].plot(dates, pred_anomaly, label="预测的异常")
     ax[0].legend()
 
     # anomaly score

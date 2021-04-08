@@ -17,6 +17,8 @@ def file_list(path: pathlib.Path) -> Sequence:
 
 
 def load_kpi(file: Union[pathlib.Path, str], **kwargs) -> bagel.data.KPI:
+    if isinstance(file, str):
+        file = pathlib.Path(file)
     df = pd.read_csv(file, **kwargs)
     return bagel.data.KPI(timestamps=df.timestamp,
                           values=df.value,
