@@ -1,0 +1,2 @@
+DATA_ROOT: /home/fanqiliang/data/istio
+fault_injection: []
