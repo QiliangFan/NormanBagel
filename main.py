@@ -42,12 +42,13 @@ def main():
     study_test_files = glob(os.path.join(test_root, "**", "219", "**","*.csv"), recursive=True)
     control_test_files = glob(os.path.join(test_root, "**", "220", "**", "*.csv"), recursive=True)
 
-
+    # 训练\测试数据对照组和实验组内容对应
     study_train_files = list(filter(lambda file: file.replace("219", "220") in control_train_files, study_train_files))
     control_train_files = [file.replace("219", "220") for file in study_train_files]
     study_test_files = list(filter(lambda file: file.replace("219", "220") in control_test_files, study_test_files))
     control_test_files = [file.replace("219", "220") for file in study_test_files]
 
+    # 训练数据和测试数据对照组\实验组相互对应
     study_test_files = list(filter(lambda file: file.replace(test_root, train_root) in study_train_files, study_test_files))
     study_train_files = [file.replace(test_root, train_root) for file in study_test_files]
     control_test_files = [file.replace("219", "220") for file in study_test_files]
