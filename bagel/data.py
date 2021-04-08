@@ -1,8 +1,10 @@
+import time
 import uuid
 import numpy as np
 import tensorflow as tf
 
 from typing import Sequence, Tuple, Optional
+
 
 class KPI:
 
@@ -45,15 +47,18 @@ class KPI:
             raise ValueError('Duplicated values in `timestamp`')
         for itv in intervals:
             if itv % interval != 0:
-                raise ValueError('Not all intervals in `timestamp` are multiples of the minimum interval')
+                raise ValueError(
+                    'Not all intervals in `timestamp` are multiples of the minimum interval')
 
         length = (timestamp_sorted[-1] - timestamp_sorted[0]) // interval + 1
-        new_timestamps = np.arange(timestamp_sorted[0], timestamp_sorted[-1] + interval, interval, dtype=np.int)
+        new_timestamps = np.arange(
+            timestamp_sorted[0], timestamp_sorted[-1] + interval, interval, dtype=np.int)
         new_values = np.zeros([length], dtype=self.values.dtype)
         new_labels = np.zeros([length], dtype=self.labels.dtype)
         new_missing = np.ones([length], dtype=self.missing.dtype)
 
-        dst_idx = np.asarray((timestamp_sorted - timestamp_sorted[0]) // interval, dtype=np.int)
+        dst_idx = np.asarray(
+            (timestamp_sorted - timestamp_sorted[0]) // interval, dtype=np.int)
         new_values[dst_idx] = self.values[src_idx]
         new_labels[dst_idx] = self.labels[src_idx]
         new_missing[dst_idx] = self.missing[src_idx]
@@ -66,7 +71,8 @@ class KPI:
     def split(self, ratios: Sequence) -> Tuple['KPI', ...]:
         if abs(1.0 - sum(ratios)) > 1e-4:
             raise ValueError('The sum of `ratios` must be 1')
-        partition = np.asarray(np.cumsum(np.asarray(ratios, dtype=np.float32)) * len(self.values), dtype=np.int)
+        partition = np.asarray(np.cumsum(np.asarray(
+            ratios, dtype=np.float32)) * len(self.values), dtype=np.int)
         partition[-1] = len(self.values)
         partition = np.concatenate(([0], partition))
         ret = []
@@ -78,6 +84,18 @@ class KPI:
                            name=self.name))
         return tuple(ret)
 
+    def split_by_indices(self, indx: int):
+        return (KPI(timestamps=self.timestamps[:index],
+                    values=self.values[:index],
+                    labels=self.labels[:index],
+                    missing=self.missing[:index],
+                    name=self.name),
+                KPI(timestamps=self.timestamps[index:],
+                    values=self.values[index:],
+                    labels=self.labels[idnex:],
+                    missing=self.missing[index:],
+                    name=self.name))
+
     def standardize(self, mean: Optional[float] = None, std: Optional[float] = None) -> Tuple['KPI', float, float]:
         if (mean is None) != (std is None):
             raise ValueError('`mean` and `std` must be both None or not None')
@@ -85,7 +103,8 @@ class KPI:
             mean = self.values.mean()
             std = self.values.std()
         values = (self.values - mean) / std
-        kpi = KPI(timestamps=self.timestamps, values=values, labels=self.labels, missing=self.missing, name=self.name)
+        kpi = KPI(timestamps=self.timestamps, values=values,
+                  labels=self.labels, missing=self.missing, name=self.name)
         return kpi, mean, std
 
     def use_labels(self, rate: float = 1.) -> 'KPI':
@@ -98,7 +117,8 @@ class KPI:
             return self
         labels = np.copy(self.labels)
         anomaly_idx = labels.nonzero()[0]
-        drop_idx = np.random.choice(anomaly_idx, round((1 - rate) * len(anomaly_idx)), replace=False)
+        drop_idx = np.random.choice(anomaly_idx, round(
+            (1 - rate) * len(anomaly_idx)), replace=False)
         labels[drop_idx] = 0
         return KPI(timestamps=self.timestamps, values=self.values, labels=labels, missing=self.missing, name=self.name)
 
@@ -124,7 +144,8 @@ class KPIDataset:
             labels = np.copy(self._label_windows[i]).astype(np.int)
             normal = np.copy(self._normal_windows[i]).astype(np.int)
 
-            injected_missing = np.random.binomial(1, self._missing_injection_rate, np.shape(values[normal == 1]))
+            injected_missing = np.random.binomial(
+                1, self._missing_injection_rate, np.shape(values[normal == 1]))
             normal[normal == 1] = 1 - injected_missing
             values[np.logical_and(normal == 0, labels == 0)] = 0.
             time_code = self._one_hot_time[i + self._window_size - 1]
@@ -145,15 +166,20 @@ class KPIDataset:
         if time_feature:
             for feature in time_feature:
                 if feature == 'a' or feature == 'A' or feature == 'w':
-                    time_code.append(self._one_hot(((kpi.timestamps // 86400) + 4) % 7, depth=7))
+                    time_code.append(self._one_hot(
+                        ((kpi.timestamps // 86400) + 4) % 7, depth=7))
                 elif feature == 'H':
-                    time_code.append(self._one_hot((kpi.timestamps % 86400) // 3600, depth=24))
+                    time_code.append(self._one_hot(
+                        (kpi.timestamps % 86400) // 3600, depth=24))
                 elif feature == 'I':
-                    time_code.append(self._one_hot((kpi.timestamps % 43200) // 3600, depth=12))
+                    time_code.append(self._one_hot(
+                        (kpi.timestamps % 43200) // 3600, depth=12))
                 elif feature == 'M':
-                    time_code.append(self._one_hot(((kpi.timestamps % 86400) % 3600) // 60, depth=60))
+                    time_code.append(self._one_hot(
+                        ((kpi.timestamps % 86400) % 3600) // 60, depth=60))
                 elif feature == 'S':
-                    time_code.append(self._one_hot(((kpi.timestamps % 86400) % 3600) % 60, depth=60))
+                    time_code.append(self._one_hot(
+                        ((kpi.timestamps % 86400) % 3600) % 60, depth=60))
                 else:
                     raise ValueError(f'Unsupported time feature: %{feature}')
         if time_code:

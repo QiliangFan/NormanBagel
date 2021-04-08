@@ -1,4 +1,4 @@
 bagel:
   window_size: 30
-  time_feature: "MS"  # MINUTE and SECOND, no need to concern about WEEK
+  time_feature: "MH"  # MINUTE and HOUR, no need to concern about WEEK
   epochs: 50

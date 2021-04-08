@@ -2,6 +2,7 @@ import bagel
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from typing import Tuple
 
 from typing import Sequence, Tuple, Dict, Optional
 
@@ -195,7 +196,7 @@ class Bagel:
             history['val_loss'] = val_losses
         return history
 
-    def predict(self, kpi: bagel.data.KPI, batch_size: int = 256, verbose: int = 1) -> np.ndarray:
+    def predict(self, kpi: bagel.data.KPI, batch_size: int = 256, verbose: int = 1) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         kpi = kpi.no_labels()
         dataset = bagel.data.KPIDataset(kpi,
                                         window_size=self._window_size,

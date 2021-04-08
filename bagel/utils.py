@@ -1,6 +1,7 @@
 import bagel
 import pathlib
 import pandas as pd
+from typing import Union
 
 from typing import Sequence
 
@@ -15,7 +16,7 @@ def file_list(path: pathlib.Path) -> Sequence:
     return [path]
 
 
-def load_kpi(file: pathlib.Path, **kwargs) -> bagel.data.KPI:
+def load_kpi(file: Union[pathlib.Path, str], **kwargs) -> bagel.data.KPI:
     df = pd.read_csv(file, **kwargs)
     return bagel.data.KPI(timestamps=df.timestamp,
                           values=df.value,
