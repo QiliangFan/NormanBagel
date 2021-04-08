@@ -4,3 +4,5 @@ bagel:
   epochs: 50
 mad:
   window_size: 5
+spot:
+  init_num: 2000

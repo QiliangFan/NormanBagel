@@ -4,8 +4,10 @@ from typing import Tuple
 from glob import glob
 from multiprocessing import Pool
 import bagel
-
+from tools import mad
 import yaml
+from spot import run_spot
+
 
 # path
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -26,14 +28,23 @@ def load_global_config():
 
 
 def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: dict):
-    window_size = hyperparam["window_size"]
-    time_feature = hyperparam["time_feature"]
-    epochs = hyperparam["epochs"]
+    # bagel hyperparams
+    bagel_window_size = hyperparam["bagel"]["window_size"]
+    time_feature = hyperparam["bagel"]["time_feature"]
+    epochs = hyperparam["bagel"]["epochs"]
+
+    # mad hyperparams
+    mad_window_size = hyperparam["mad"]["window_size"]
+
+    # spot hyperparams
+    spot_init_num = hyperparam["spot"]["init_num"]
 
     study_train_file, control_train_file = train_files
     study_test_file, control_test_file = test_files
 
-    model = bagel.Bagel(window_size=window_size,
+    name = os.path.splitext(os.path.basename(study_train_file))[0]
+
+    model = bagel.Bagel(window_size=bagel_window_size,
                         time_feature=time_feature)
 
     # study group
@@ -50,19 +61,28 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
         model.fit(study_train_kpi, epochs=epochs)
         model.save(study_model_save_path)
     anomaly_scores, x_mean, x_std = model.predict(study_test_kpi)
+    train_data_anoamly_sc, _, _ = model.predict(study_train_kpi)
 
     # control group
     control_train_kpi = bagel.utils.load_kpi(control_train_file)
     control_test_kpi = bagel.utils.load_kpi(control_test_file)
 
     # remove window_size - 1 points ahead
-    anomaly_scores = anomaly_scores[window_size-1:]
-    x_mean = x_mean[window_size-1:]
-    x_std = x_std[window_size-1:]
-    _, study_test_kpi = study_test_kpi.split_by_indices(window_size-1)
-    _, control_test_kpi = control_test_kpi.split_by_indices(window_size-1)
+    anomaly_scores = anomaly_scores[bagel_window_size-1:]
+    x_mean = x_mean[bagel_window_size-1:]
+    x_std = x_std[bagel_window_size-1:]
+    _, study_test_kpi = study_test_kpi.split_by_indices(bagel_window_size-1)
+    _, control_test_kpi = control_test_kpi.split_by_indices(bagel_window_size-1)
 
-    # 
+    # mad
+    mad_filter = mad(study_test_kpi.raw_values, name, mad_window_size)
+
+    # spot
+    pred_label, spot_threshold = run_spot(train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
+
+    # plot
+    
+
 
 def main():
     # data_root 不推荐由程序来创建

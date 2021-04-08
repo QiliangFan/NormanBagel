@@ -16,7 +16,7 @@ class KPI:
                  name: Optional[str] = None):
         self.timestamps = np.asarray(timestamps, dtype=np.int)
         self.values = np.asarray(values, dtype=np.float32)
-
+        self.raw_values = np.asarray(values, dtype=np.float32)
         if labels is None:
             self.labels = np.zeros(np.shape(values), dtype=np.int)
         else:
@@ -105,6 +105,7 @@ class KPI:
         values = (self.values - mean) / std
         kpi = KPI(timestamps=self.timestamps, values=values,
                   labels=self.labels, missing=self.missing, name=self.name)
+        kpi.raw_values: np.ndarray = self.values
         return kpi, mean, std
 
     def use_labels(self, rate: float = 1.) -> 'KPI':

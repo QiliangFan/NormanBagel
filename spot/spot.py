@@ -387,7 +387,7 @@ class SPOT:
         else:
             return self.init_threshold - sigma*log(r)
 
-    def run(self, with_alarm=True):
+    def run(self, with_alarm=True) -> dict:
         """
         Run SPOT on the stream
 
