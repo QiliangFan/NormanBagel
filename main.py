@@ -7,6 +7,7 @@ import bagel
 from tools import mad
 import yaml
 from spot import run_spot
+from preprocess import make_label
 
 
 # path
@@ -43,6 +44,7 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     study_test_file, control_test_file = test_files
 
     name = os.path.splitext(os.path.basename(study_train_file))[0]
+    svc = os.path.basename(os.path.dirname(study_train_file))
 
     model = bagel.Bagel(window_size=bagel_window_size,
                         time_feature=time_feature)
@@ -91,8 +93,11 @@ def main():
         data_root), f"data root must exists, but {data_root} is not found..."
     train_root = os.path.join(data_root, "train")
     test_root = os.path.join(data_root, "test")
+    input_root = os.path.join(data_root, "input")
     assert os.path.exists(train_root) and os.path.exists(
         test_root), f"{train_root} and {test_root} must exist all !"
+    
+    make_label(global_config, input_root, test_root)
 
     study_train_files = glob(os.path.join(
         train_root, "**", "219", "**", "*.csv"), recursive=True)
@@ -137,5 +142,4 @@ def main():
 if __name__ == "__main__":
     hyperparam = load_hyper_param()
     global_config = load_global_config()
-
     main()
