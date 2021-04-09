@@ -1,7 +1,7 @@
 import argparse
 import os
 from tools.plot import integrate_plot
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, List
 from glob import glob
 from multiprocessing import Pool
 import bagel
@@ -11,6 +11,9 @@ from spot import run_spot
 from preprocess import make_label
 import sys
 import re
+import tensorflow as tf
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 # path
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -32,11 +35,12 @@ def load_global_config():
     return global_config
 
 
-def filter_between_train_test(path: str, file_list: Sequence[str]):
+def filter_between_train_test(path: str, file_list: Sequence[str], train_tmp: List[str]):
     path = "/".join(path.split("/")[-2:])
-    for file in file_list:
-        file = "/".join(file.split("/")[-2:])
+    for _file in file_list:
+        file = "/".join(_file.split("/")[-2:])
         if path == file:
+            train_tmp.append(_file)
             return True
     return False
 
@@ -125,48 +129,49 @@ def main():
         test_root), f"{train_root} and {test_root} must exist all !"
 
     make_label(global_config, input_root, test_root)
+    for case in os.listdir(test_root):
+        study_train_files = glob(os.path.join(
+            train_root, "**", "219", "**", "*.csv"), recursive=True)
+        control_train_files = glob(os.path.join(
+            train_root, "**", "220", "**", "*.csv"), recursive=True)
+        study_test_files = glob(os.path.join(
+            test_root, case, "**", "219", "**", "*.csv"), recursive=True)
+        control_test_files = glob(os.path.join(
+            test_root, case, "**", "220", "**", "*.csv"), recursive=True)
 
-    study_train_files = glob(os.path.join(
-        train_root, "**", "219", "**", "*.csv"), recursive=True)
-    control_train_files = glob(os.path.join(
-        train_root, "**", "220", "**", "*.csv"), recursive=True)
-    study_test_files = glob(os.path.join(
-        test_root, "**", "219", "**", "*.csv"), recursive=True)
-    control_test_files = glob(os.path.join(
-        test_root, "**", "220", "**", "*.csv"), recursive=True)
+        # 训练\测试数据对照组和实验组内容对应
+        study_train_files = list(filter(lambda file: file.replace(
+            "219", "220") in control_train_files, study_train_files))
+        control_train_files = [file.replace("219", "220")
+                            for file in study_train_files]
+        study_test_files = list(filter(lambda file: file.replace(
+            "219", "220") in control_test_files, study_test_files))
+        control_test_files = [file.replace("219", "220")
+                            for file in study_test_files]
 
-    # 训练\测试数据对照组和实验组内容对应
-    study_train_files = list(filter(lambda file: file.replace(
-        "219", "220") in control_train_files, study_train_files))
-    control_train_files = [file.replace("219", "220")
-                           for file in study_train_files]
-    study_test_files = list(filter(lambda file: file.replace(
-        "219", "220") in control_test_files, study_test_files))
-    control_test_files = [file.replace("219", "220")
-                          for file in study_test_files]
+        # 训练数据和测试数据对照组\实验组相互对应
+        tmp = []
+        train_tmp = []
+        for f_test in study_test_files:
+            if filter_between_train_test(f_test, study_train_files, train_tmp):
+                tmp.append(f_test)
+                
+        study_test_files = tmp
+        study_train_files = train_tmp
+        control_test_files = [file.replace("219", "220")
+                            for file in study_test_files]
+        control_train_files = [file.replace("219", "220")
+                            for file in study_train_files]
 
-    # 训练数据和测试数据对照组\实验组相互对应
-    tmp = []
-    for f_test in study_test_files:
-        if filter_between_train_test(f_test, study_train_files):
-            tmp.append(f_test)
-    study_test_files = tmp
-    study_train_files = [file.replace(test_root, train_root)
-                         for file in study_test_files if os.path.exists(file.replace(test_root, train_root))]
-    control_test_files = [file.replace("219", "220")
-                          for file in study_test_files]
-    control_train_files = [file.replace("219", "220")
-                           for file in study_train_files]
+        test_files = list(zip(study_test_files, control_test_files))
+        train_files = list(zip(study_train_files, control_train_files))
 
-    test_files = list(zip(study_test_files, control_test_files))
-    train_files = list(zip(study_train_files, control_train_files))
-
-    pool_params = [(train, test, hyperparam)
-                   for train, test in zip(train_files, test_files)]
-    with Pool(processes=6) as pool:
-        pool.starmap(work, pool_params)
-        pool.close()
-        pool.join()
+        pool_params = [(train, test, hyperparam)
+                    for train, test in zip(train_files, test_files)]
+        with Pool(processes=6) as pool:
+            pool.starmap(work, pool_params)
+            pool.close()
+            pool.join()
 
 
 if __name__ == "__main__":
