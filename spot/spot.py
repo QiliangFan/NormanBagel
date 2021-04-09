@@ -168,7 +168,7 @@ class SPOT:
         self.data = np.append(self.data, data)
         return
 
-    def initialize(self, level=0.98, verbose=True):
+    def initialize(self, level=0.98, verbose=False):
         """
         Run the calibration (initialization) step
 
@@ -638,7 +638,7 @@ class biSPOT:
         self.data = np.append(self.data, data)
         return
 
-    def initialize(self, verbose=True):
+    def initialize(self, verbose=False):
         """
         Run the calibration (initialization) step
 
@@ -1170,7 +1170,7 @@ class dSPOT:
         self.data = np.append(self.data, data)
         return
 
-    def initialize(self, verbose=True):
+    def initialize(self, verbose=False):
         """
         Run the calibration (initialization) step
 
@@ -1654,7 +1654,7 @@ class bidSPOT:
         self.data = np.append(self.data, data)
         return
 
-    def initialize(self, verbose=True):
+    def initialize(self, verbose=False):
         """
         Run the calibration (initialization) step
 

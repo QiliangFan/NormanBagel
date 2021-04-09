@@ -19,6 +19,8 @@ def mad(data: np.ndarray, name: str, mad_window: int):
     else:
         print(f"\033[34m WARNING! \033[0m {name}'s threshold has not been configured...")
         threshold = threshold_config["default"]
+    if isinstance(threshold, str):
+        threshold = eval(threshold)
 
     # if 1, can be set with the anomaly label
     sensitivity = np.zeros_like(data)

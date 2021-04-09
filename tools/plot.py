@@ -39,24 +39,25 @@ def integrate_plot(study_test_kpi: KPI,
 
     # raw kpi
     pred_anomaly = np.copy(study_test_kpi.raw_values)
-    pred_anomaly[np.where(anomaly_score == 0)] = np.inf
+    pred_anomaly[np.where(pred_label == 0)] = np.inf
     ax[0].set_title("raw KPI")
-    ax[0].plot(dates, study_test_kpi.raw_values, label="Study raw data")
-    ax[0].plot(dates, control_test_kpi.raw_values, label="Control raw data")
-    ax[0].plot(dates, pred_anomaly, label="Predict data")
+    ax[0].plot(dates, study_test_kpi.raw_values, label="Study raw data", color="mediumslateblue")
+    ax[0].plot(dates, control_test_kpi.raw_values, label="Control raw data", color="lightsteelblue")
+    ax[0].plot(dates, pred_anomaly, label="Predict data", color="lightcoral")
     ax[0].legend()
 
     # anomaly score
     ax[1].set_title("Anomaly score")
-    ax[1].plot(dates, anomaly_score, label="Anomaly score")
-    ax[1].plot(dates, threshold, label="Threshold")
+    ax[1].plot(dates, anomaly_score, label="Anomaly score", color="hotpink")
+    ax[1].plot(dates, threshold, label="Threshold", linestyle="--", color="c")
     ax[1].legend()
 
     # expectation
     ax[2].set_title("Expectation")
-    ax[2].plot(dates, x_mean, label=r"Expectation$\mu$")
-    ax[2].plot(dates, x_mean - 3 * x_std, label=r"Lower bound $\mu-3\sigma$")
-    ax[2].plot(dates, x_mean + 3 * x_std, label=r"Upper bound $\mu+3\sigma$")
+    ax[2].plot(dates, x_mean, label=r"Expectation $\mu$", color="deepskyblue")
+    ax[2].plot(dates, x_mean - 3 * x_std, label=r"Lower bound $\mu-3\sigma$", color="lightcyan")
+    ax[2].plot(dates, x_mean + 3 * x_std, label=r"Upper bound $\mu+3\sigma$", color="lightcyan")
+    ax[2].fill_between(dates, x_mean - 3 * x_std, x_mean + 3 * x_std, color="lightcyan", alpha=0.8)
     ax[2].legend()
 
     if save_path:

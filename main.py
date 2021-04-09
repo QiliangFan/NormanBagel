@@ -1,5 +1,6 @@
 import argparse
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 from tools.plot import integrate_plot
 from typing import Sequence, Tuple, List
 from glob import glob
@@ -11,9 +12,7 @@ from spot import run_spot
 from preprocess import make_label
 import sys
 import re
-import tensorflow as tf
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 # path
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -99,21 +98,25 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
         train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
 
     # plot
-    post_sub_path = study_test_file.split(os.path.sep)[-5:]
-    post_sub_path.remove("data")
-    if "219" in post_sub_path: post_sub_path.remove("219")
-    if "220" in post_sub_path: post_sub_path.remove("220")
-    save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
-    integrate_plot(study_test_kpi,
-                   control_test_kpi,
-                   anomaly_scores,
-                   x_mean,
-                   x_std,
-                   pred_label,
-                   spot_threshold,
-                   name,
-                   svc,
-                   save_path=save_path)
+    try:
+        post_sub_path = study_test_file.split(os.path.sep)[-5:]
+        post_sub_path.remove("data")
+        if "219" in post_sub_path: post_sub_path.remove("219")
+        if "220" in post_sub_path: post_sub_path.remove("220")
+        save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
+        integrate_plot(study_test_kpi,
+                    control_test_kpi,
+                    anomaly_scores,
+                    x_mean,
+                    x_std,
+                    pred_label,
+                    spot_threshold,
+                    name,
+                    svc,
+                    save_path=save_path)
+    # 数据缺失时不画了
+    except:
+        print("\033[36m 数据缺失... \033[0m")
 
 
 def main():
@@ -130,6 +133,9 @@ def main():
 
     make_label(global_config, input_root, test_root)
     for case in os.listdir(test_root):
+        if case.startswith("exclude"):
+            continue 
+        print(f"CASE: {case}")
         study_train_files = glob(os.path.join(
             train_root, "**", "219", "**", "*.csv"), recursive=True)
         control_train_files = glob(os.path.join(
@@ -168,7 +174,7 @@ def main():
 
         pool_params = [(train, test, hyperparam)
                     for train, test in zip(train_files, test_files)]
-        with Pool(processes=6) as pool:
+        with Pool(processes=12) as pool:
             pool.starmap(work, pool_params)
             pool.close()
             pool.join()

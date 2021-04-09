@@ -4,6 +4,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from typing import Tuple
 
+
 from typing import Sequence, Tuple, Dict, Optional
 
 
