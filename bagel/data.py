@@ -84,7 +84,7 @@ class KPI:
                            name=self.name))
         return tuple(ret)
 
-    def split_by_indices(self, indx: int):
+    def split_by_indices(self, index: int):
         return (KPI(timestamps=self.timestamps[:index],
                     values=self.values[:index],
                     labels=self.labels[:index],
@@ -92,7 +92,7 @@ class KPI:
                     name=self.name),
                 KPI(timestamps=self.timestamps[index:],
                     values=self.values[index:],
-                    labels=self.labels[idnex:],
+                    labels=self.labels[index:],
                     missing=self.missing[index:],
                     name=self.name))
 

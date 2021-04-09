@@ -73,19 +73,16 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     if os.path.exists(os.path.join(PROJECT_PATH, "varaibales", study_sign + ".index")):
         model.load(study_model_save_path)
     else:
-        model.fit(study_train_kpi, epochs=epochs)
+        model.fit(study_train_kpi, epochs=epochs, verbose=0)
         model.save(study_model_save_path)
-    anomaly_scores, x_mean, x_std = model.predict(study_test_kpi)
-    train_data_anoamly_sc, _, _ = model.predict(study_train_kpi)
+    anomaly_scores, x_mean, x_std = model.predict(study_test_kpi, verbose=0)
+    train_data_anoamly_sc, _, _ = model.predict(study_train_kpi, verbose=0)
 
     # control group
     control_train_kpi = bagel.utils.load_kpi(control_train_file)
     control_test_kpi = bagel.utils.load_kpi(control_test_file)
 
     # remove window_size - 1 points ahead
-    anomaly_scores = anomaly_scores[bagel_window_size-1:]
-    x_mean = x_mean[bagel_window_size-1:]
-    x_std = x_std[bagel_window_size-1:]
     _, study_test_kpi = study_test_kpi.split_by_indices(bagel_window_size-1)
     _, control_test_kpi = control_test_kpi.split_by_indices(
         bagel_window_size-1)
@@ -98,6 +95,11 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
         train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
 
     # plot
+    post_sub_path = study_test_file.split(os.path.sep)[-5:]
+    post_sub_path.remove("data")
+    if "219" in post_sub_path: post_sub_path.remove("219")
+    if "220" in post_sub_path: post_sub_path.remove("220")
+    save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
     integrate_plot(study_test_kpi,
                    control_test_kpi,
                    anomaly_scores,
@@ -106,7 +108,8 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
                    pred_label,
                    spot_threshold,
                    name,
-                   svc)
+                   svc,
+                   save_path=save_path)
 
 
 def main():

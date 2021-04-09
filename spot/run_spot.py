@@ -17,9 +17,9 @@ def run_spot(init_data, test_data, mad_filter: Sequence[int], q=1e-2, level=0.6)
     result = spot.run()
     pred_label = np.zeros_like(test_data)
     thresholds = result["thresholds"]
-    for data, th, mad in zip(test_data, thresholds, mad_filter):
+    for i, (data, th, mad) in enumerate(zip(test_data, thresholds, mad_filter)):
         if data > th and mad > 0:
-            pred_label = 1
+            pred_label[i-2:i+3] = 1
 
     pred_label = _smooth(pred_label)
     return pred_label, np.asarray(thresholds)

@@ -13,7 +13,6 @@ from math import log, floor
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import tqdm
 
 # colors for plot
 deep_saffron = '#FF9933'
@@ -202,14 +201,6 @@ class SPOT:
 
         g, s, l = self._grimshaw()
         self.extreme_quantile = self._quantile(g, s)
-
-        if verbose:
-            print('[done]')
-            print('\t'+chr(0x03B3) + ' = ' + str(g))
-            print('\t'+chr(0x03C3) + ' = ' + str(s))
-            print('\tL = ' + str(l))
-            print('Extreme quantile (probability = %s): %s' %
-                  (self.proba, self.extreme_quantile))
 
         return
 
@@ -416,7 +407,7 @@ class SPOT:
         th = []
         alarm = []
         # Loop over the stream
-        for i in tqdm.tqdm(range(self.data.size)):
+        for i in range(self.data.size):
 
             # If the observed value exceeds the current threshold (alarm case)
             if self.data[i] > self.extreme_quantile:
@@ -916,7 +907,7 @@ class biSPOT:
         thdown = []
         alarm = []
         # Loop over the stream
-        for i in tqdm.tqdm(range(self.data.size)):
+        for i in range(self.data.size):
 
             # If the observed value exceeds the current threshold (alarm case)
             if self.data[i] > self.extreme_quantile['up']:
@@ -1426,7 +1417,7 @@ class dSPOT:
         th = []
         alarm = []
         # Loop over the stream
-        for i in tqdm.tqdm(range(self.data.size)):
+        for i in range(self.data.size):
             Mi = W.mean()
             # If the observed value exceeds the current threshold (alarm case)
             if (self.data[i]-Mi) > self.extreme_quantile:
@@ -1939,7 +1930,7 @@ class bidSPOT:
         thdown = []
         alarm = []
         # Loop over the stream
-        for i in tqdm.tqdm(range(self.data.size)):
+        for i in range(self.data.size):
             Mi = W.mean()
             Ni = self.data[i]-Mi
             # If the observed value exceeds the current threshold (alarm case)
