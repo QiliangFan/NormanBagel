@@ -44,9 +44,9 @@ class Litmus(Model):
         study_before, study_after, control_before, control_after, litmus_window_size = Litmus.split_data(change_idx, study_data, control_data)
 
         # data
-        train_data = tf.data.Dataset.from_tensor_slices((control_before, study_after)).batch(litmus_window_size)
-        control_before_data = tf.data.Dataset.from_tensor_slices(control_before).batch(litmus_window_size)
-        control_after_data = tf.data.Dataset.from_tensor_slices(study_after).batch(litmus_window_size)
+        train_data = tf.data.Dataset.from_tensor_slices(([control_before], [study_after])).batch(litmus_window_size)
+        control_before_data = tf.data.Dataset.from_tensor_slices([control_before]).batch(litmus_window_size)
+        control_after_data = tf.data.Dataset.from_tensor_slices([study_after]).batch(litmus_window_size)
 
         # train and test
         litmus = Litmus(out_dim=litmus_window_size)
@@ -81,8 +81,9 @@ class Litmus(Model):
                     zip(gradients, self.trainable_variables))
 
     def predict(self, data) -> np.ndarray:
-        pred_y: tf.Tensor = self(data)
-        return pred_y.numpy()
+        for d in data:
+            pred_y: tf.Tensor = self(d)
+            return pred_y.numpy()
 
     @staticmethod
     def split_data(change_idx: int, study_data: np.ndarray, control_data: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
@@ -114,13 +115,13 @@ class Litmus(Model):
             u_yx_i.append(len(np.where(_x > y)[0]))
         u_yx_i = np.asarray(u_yx_i)
         u_yx = np.mean(u_yx_i)
-        v_x = np.pow(np.std(u_yx_i), 2) 
-
+        v_x = np.power(np.std(u_yx_i), 2) 
+        
         return np.asarray(u_yx_i), np.asarray(u_yx), np.asarray(v_x)
 
     @staticmethod
     def critical_value(u_yx: np.ndarray, u_xy, v_x, v_y, window_size):
-        return 0.5 * window_size * (u_yx - u_xy) / np.pow((u_xy*u_yx + v_x + v_y), 0.5)
+        return 0.5 * (u_yx - u_xy) * np.power(window_size, 0.5) / (np.power((u_xy*u_yx + v_x + v_y), 0.5) + 1e-6)
 
     def __call__(self, *args, **kwargs) -> tf.Tensor:
         return super(Litmus, self).__call__(*args, **kwargs)

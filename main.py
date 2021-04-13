@@ -1,18 +1,22 @@
 import argparse
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-from tools.plot import integrate_plot
-from typing import Sequence, Tuple, List
+import re
+import sys
+import traceback
 from glob import glob
 from multiprocessing import Pool
-import bagel
-from tools import mad
-import yaml
-from spot import run_spot
-from preprocess import make_label
-import sys
-import re
+from typing import List, Sequence, Tuple
 
+import numpy as np
+import yaml
+
+import bagel
+from preprocess import make_label
+from spot import run_spot
+from tools import mad
+from tools.plot import integrate_plot
 
 # path
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -44,7 +48,7 @@ def filter_between_train_test(path: str, file_list: Sequence[str], train_tmp: Li
     return False
 
 
-def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: dict):
+def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: dict, fault_list: List[dict]):
     # bagel hyperparams
     bagel_window_size = hyperparam["bagel"]["window_size"]
     time_feature = hyperparam["bagel"]["time_feature"]
@@ -78,8 +82,12 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     else:
         model.fit(study_train_kpi, epochs=epochs, verbose=0)
         model.save(study_model_save_path)
-    anomaly_scores, x_mean, x_std = model.predict(study_test_kpi, verbose=0)
-    train_data_anoamly_sc, _, _ = model.predict(study_train_kpi, verbose=0)
+    try:
+        anomaly_scores, x_mean, x_std = model.predict(study_test_kpi, verbose=0)
+        train_data_anoamly_sc, _, _ = model.predict(study_train_kpi, verbose=0)
+    except:
+        print("\033[36m 数据缺失... \033[0m")
+        return
 
     # control group
     control_train_kpi = bagel.utils.load_kpi(control_train_file)
@@ -104,6 +112,16 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
         if "219" in post_sub_path: post_sub_path.remove("219")
         if "220" in post_sub_path: post_sub_path.remove("220")
         save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
+        split_save_path = save_path.split(os.path.sep)
+        svc = split_save_path.pop(-2)
+        save_path = os.path.sep.join(split_save_path)
+        save_path = save_path.replace(".png", f"_{svc}.png")
+        study_test_ts = study_test_kpi.timestamps
+        change_ts = None
+        for fault in fault_list:
+            if fault["start"] >= np.min(study_test_ts) and fault["start"] <= np.max(study_test_ts):
+                change_ts = fault["start"] 
+                break
         integrate_plot(study_test_kpi,
                     control_test_kpi,
                     anomaly_scores,
@@ -113,15 +131,19 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
                     spot_threshold,
                     name,
                     svc,
-                    save_path=save_path)
+                    save_path=save_path,
+                    change_ts=change_ts)
     # 数据缺失时不画了
     except:
         print("\033[36m 数据缺失... \033[0m")
+        return
 
 
 def main():
     # data_root 不推荐由程序来创建
     data_root = global_config["DATA_ROOT"]
+    fault_list = global_config["fault_injection"]
+
     assert os.path.exists(
         data_root), f"data root must exists, but {data_root} is not found..."
     train_root = os.path.join(data_root, "train")
@@ -172,7 +194,7 @@ def main():
         test_files = list(zip(study_test_files, control_test_files))
         train_files = list(zip(study_train_files, control_train_files))
 
-        pool_params = [(train, test, hyperparam)
+        pool_params = [(train, test, hyperparam, fault_list)
                     for train, test in zip(train_files, test_files)]
         with Pool(processes=12) as pool:
             pool.starmap(work, pool_params)
@@ -183,4 +205,6 @@ def main():
 if __name__ == "__main__":
     hyperparam = load_hyper_param()
     global_config = load_global_config()
+    fault_list = global_config["fault_injection"]
+
     main()

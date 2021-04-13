@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
+import os
+from datetime import datetime
 from typing import Sequence, Tuple
 
-from datetime import datetime
 import matplotlib
-import matplotlib.pyplot as plt
-from bagel.data import KPI
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
-import os
+from bagel.data import KPI
+from litmus import Litmus
+import traceback
 
 matplotlib.use("agg")
 
@@ -21,14 +23,33 @@ def integrate_plot(study_test_kpi: KPI,
                    threshold,
                    name,
                    svc,
-                   save_path: str=None):
+                   save_path: str = None,
+                   change_ts: int = None):
+    # Litmus
+    try:
+        if len(np.where(pred_label > 0)[0]) > 0:
+            change_idx = np.where(change_ts > study_test_kpi.timestamps)[0][-1]
+
+            critical_score, litmus_threshold = Litmus.run(change_idx=change_idx,
+                                                        study_data=study_test_kpi.raw_values,
+                                                        control_data=control_test_kpi.raw_values,
+                                                        ts=study_test_kpi.timestamps)
+        else:
+            critical_score, litmus_threshold = None, None
+    except Exception as e:
+        traceback.print_exc()
+        critical_score, litmus_threshold = None, None
+
     """
     图比较多时不适合加上用英文图例`
     """
     fig_num = 3
-    fig, ax = plt.subplots(fig_num, 1, figsize=(20, 10))
+    (fig, ax) = plt.subplots(fig_num, 1, figsize=(20, 10))
     plt.tight_layout(pad=5.5, h_pad=1.5)
-    fig.suptitle(f"{svc}-{name}\n")
+    if critical_score is not None and litmus_threshold is not None:
+        fig.suptitle(f"{svc}-{name}\n critical score: {critical_score}, confidence interva: [ -{litmus_threshold}, {litmus_threshold}]")
+    else:
+        fig.suptitle(f"{svc}-{name}\n")
 
     # time axis
     ts = study_test_kpi.timestamps
@@ -40,9 +61,14 @@ def integrate_plot(study_test_kpi: KPI,
     # raw kpi
     pred_anomaly = np.copy(study_test_kpi.raw_values)
     pred_anomaly[np.where(pred_label == 0)] = np.inf
+    if change_ts:
+        ax[0].axvline(datetime.fromtimestamp(change_ts), ymin=0.02,
+                      ymax=0.98, linestyle="--", color="gold")
     ax[0].set_title("raw KPI")
-    ax[0].plot(dates, study_test_kpi.raw_values, label="Study raw data", color="mediumslateblue")
-    ax[0].plot(dates, control_test_kpi.raw_values, label="Control raw data", color="lightsteelblue")
+    ax[0].plot(dates, study_test_kpi.raw_values,
+               label="Study raw data", color="mediumslateblue")
+    ax[0].plot(dates, control_test_kpi.raw_values,
+               label="Control raw data", color="lightsteelblue")
     ax[0].plot(dates, pred_anomaly, label="Predict data", color="lightcoral")
     ax[0].legend()
 
@@ -55,9 +81,12 @@ def integrate_plot(study_test_kpi: KPI,
     # expectation
     ax[2].set_title("Expectation")
     ax[2].plot(dates, x_mean, label=r"Expectation $\mu$", color="deepskyblue")
-    ax[2].plot(dates, x_mean - 3 * x_std, label=r"Lower bound $\mu-3\sigma$", color="lightcyan")
-    ax[2].plot(dates, x_mean + 3 * x_std, label=r"Upper bound $\mu+3\sigma$", color="lightcyan")
-    ax[2].fill_between(dates, x_mean - 3 * x_std, x_mean + 3 * x_std, color="lightcyan", alpha=0.8)
+    ax[2].plot(dates, x_mean - 3 * x_std,
+               label=r"Lower bound $\mu-3\sigma$", color="lightcyan")
+    ax[2].plot(dates, x_mean + 3 * x_std,
+               label=r"Upper bound $\mu+3\sigma$", color="lightcyan")
+    ax[2].fill_between(dates, x_mean - 3 * x_std, x_mean +
+                       3 * x_std, color="lightcyan", alpha=0.8)
     ax[2].legend()
 
     if save_path:
