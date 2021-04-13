@@ -47,7 +47,7 @@ def integrate_plot(study_test_kpi: KPI,
     (fig, ax) = plt.subplots(fig_num, 1, figsize=(20, 10))
     plt.tight_layout(pad=5.5, h_pad=1.5)
     if critical_score is not None and litmus_threshold is not None:
-        fig.suptitle(f"{svc}-{name}\n critical score: {critical_score}, confidence interva: [ -{litmus_threshold}, {litmus_threshold}]")
+        fig.suptitle(f"{svc}-{name}\n critical score: {critical_score:.4f}, confidence interva: [ -{litmus_threshold:.4f}, {litmus_threshold:.4f}]")
     else:
         fig.suptitle(f"{svc}-{name}\n")
 

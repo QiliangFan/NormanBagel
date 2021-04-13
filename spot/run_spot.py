@@ -10,7 +10,7 @@ def _smooth(seq: np.ndarray):
     return seq
 
 
-def run_spot(init_data, test_data, mad_filter: Sequence[int], q=1e-2, level=0.8) -> Tuple[np.ndarray, np.ndarray]:
+def run_spot(init_data, test_data, mad_filter: Sequence[int], q=1e-3, level=0.8) -> Tuple[np.ndarray, np.ndarray]:
     spot = SPOT(q)
     spot.fit(init_data=init_data, data=test_data)
     spot.initialize(level=level)

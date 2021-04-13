@@ -25,7 +25,7 @@ def make_label(global_config: dict, raw_root: str, test_data_root: str) -> None:
     dst_files: List[str] = [file.replace(raw_root, test_data_root) for file in raw_files]
 
     for src, dst in tqdm(zip(raw_files, dst_files), total=len(raw_files)):
-        if os.path.exists(dst):
+        if os.path.exists(dst) or os.path.exists(dst.replace(test_data_root, os.path.join(test_data_root, "exclude"))):
             continue
         raw_df: pd.DataFrame = pd.read_csv(src, header=None)
         df_with_header = add_header(raw_df.values)

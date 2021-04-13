@@ -121,7 +121,7 @@ class Litmus(Model):
 
     @staticmethod
     def critical_value(u_yx: np.ndarray, u_xy, v_x, v_y, window_size):
-        return 0.5 * (u_yx - u_xy) * np.power(window_size, 0.5) / (np.power((u_xy*u_yx + v_x + v_y), 0.5) + 1e-6)
+        return 0.5 * (u_yx - u_xy) * np.power(window_size, 1) / (np.power((u_xy*u_yx + v_x + v_y), 0.5) + 1e-6)
 
     def __call__(self, *args, **kwargs) -> tf.Tensor:
         return super(Litmus, self).__call__(*args, **kwargs)
