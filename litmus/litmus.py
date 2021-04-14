@@ -31,7 +31,7 @@ class Litmus(Model):
         ])
 
     @staticmethod
-    def run(change_idx: int, study_data: np.ndarray, control_data: np.ndarray, ts: np.ndarray) -> Tuple[Union[float, np.ndarray], float]:
+    def run(change_idx: int, study_data: np.ndarray, control_data: np.ndarray, ts: np.ndarray) -> Tuple[Union[float, np.ndarray], float, np.ndarray]:
         """
         Recommendation: 
         >>> len(study_data) == len(control_data)
@@ -44,9 +44,9 @@ class Litmus(Model):
         study_before, study_after, control_before, control_after, litmus_window_size = Litmus.split_data(change_idx, study_data, control_data)
 
         # data
-        train_data = tf.data.Dataset.from_tensor_slices(([control_before], [study_after])).batch(litmus_window_size)
+        train_data = tf.data.Dataset.from_tensor_slices(([control_before], [study_before])).batch(litmus_window_size)
         control_before_data = tf.data.Dataset.from_tensor_slices([control_before]).batch(litmus_window_size)
-        control_after_data = tf.data.Dataset.from_tensor_slices([study_after]).batch(litmus_window_size)
+        control_after_data = tf.data.Dataset.from_tensor_slices([control_after]).batch(litmus_window_size)
 
         # train and test
         litmus = Litmus(out_dim=litmus_window_size)
@@ -57,15 +57,15 @@ class Litmus(Model):
         pred_control_before = litmus.predict(control_before_data)[0]  # first batch 
         pred_control_after = litmus.predict(control_after_data)[0]  # first batch
 
-        diff_before = Litmus.compute_diff(pred_control_before, control_before)
-        diff_after = Litmus.compute_diff(pred_control_after, control_after)
+        diff_before = Litmus.compute_diff(pred_control_before, study_before)
+        diff_after = Litmus.compute_diff(pred_control_after, study_after)
 
         _, u_yx, vx = Litmus.compute_mean_placements(diff_after, diff_before)
         _, u_xy, vy = Litmus.compute_mean_placements(diff_before, diff_after)
 
         critical_score = Litmus.critical_value(u_yx, u_xy, vx, vy, litmus_window_size)
 
-        return critical_score, Litmus.THRESHOLD
+        return critical_score, Litmus.THRESHOLD, np.concatenate([pred_control_before, pred_control_after], axis=0)
 
     def call(self, inputs, **kwargs) -> tf.Tensor:
         return self.linear_regression(inputs)
@@ -121,7 +121,7 @@ class Litmus(Model):
 
     @staticmethod
     def critical_value(u_yx: np.ndarray, u_xy, v_x, v_y, window_size):
-        return 0.5 * (u_yx - u_xy) * np.power(window_size, 1.2) / (np.power((u_xy*u_yx + v_x + v_y), 0.5) + 1e-6)
+        return 0.5 * (u_yx - u_xy) * np.power(window_size, 1) / (np.power((u_xy*u_yx + v_x + v_y), 0.5) + 1e-6)
 
     def __call__(self, *args, **kwargs) -> tf.Tensor:
         return super(Litmus, self).__call__(*args, **kwargs)

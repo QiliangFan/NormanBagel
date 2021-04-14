@@ -30,15 +30,15 @@ def integrate_plot(study_test_kpi: KPI,
         if len(np.where(pred_label > 0)[0]) > 0:
             change_idx = np.where(change_ts > study_test_kpi.timestamps)[0][-1]
 
-            critical_score, litmus_threshold = Litmus.run(change_idx=change_idx,
+            critical_score, litmus_threshold, pred_data = Litmus.run(change_idx=change_idx,
                                                         study_data=study_test_kpi.raw_values,
                                                         control_data=control_test_kpi.raw_values,
                                                         ts=study_test_kpi.timestamps)
         else:
-            critical_score, litmus_threshold = None, None
+            critical_score, litmus_threshold, pred_data = None, None, None
     except Exception as e:
         traceback.print_exc()
-        critical_score, litmus_threshold = None, None
+        critical_score, litmus_threshold, pred_data = None, None, None
 
     """
     图比较多时不适合加上用英文图例`
@@ -70,6 +70,7 @@ def integrate_plot(study_test_kpi: KPI,
     ax[0].plot(dates, control_test_kpi.raw_values,
                label="Control raw data", color="lightsteelblue")
     ax[0].plot(dates, pred_anomaly, label="Predication", color="lightcoral")
+
     ax[0].legend()
 
     # anomaly score
