@@ -76,8 +76,8 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     # load model param
     study_sign = "_".join(study_train_file.split(os.path.sep)[2:])
     study_model_save_path = os.path.join(
-        PROJECT_PATH, "varaibales", study_sign)
-    if os.path.exists(os.path.join(PROJECT_PATH, "varaibales", study_sign + ".index")):
+        PROJECT_PATH, "variables", study_sign)
+    if os.path.exists(os.path.join(PROJECT_PATH, "variables", study_sign + ".index")):
         model.load(study_model_save_path)
     else:
         model.fit(study_train_kpi, epochs=epochs, verbose=0)
