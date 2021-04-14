@@ -8,7 +8,7 @@
 'istio_request_duration_milliseconds_sum': 3
 'disk_read_rate': 1e6
 'disk_write_rate': 1e6
-'load': 2
+'load': 20
 'mem_usage': 0.2
 'tcp_recv_drop': 1e-9
 'tcp_recv_err': 1e-9

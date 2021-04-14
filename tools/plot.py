@@ -69,7 +69,7 @@ def integrate_plot(study_test_kpi: KPI,
                label="Study raw data", color="mediumslateblue")
     ax[0].plot(dates, control_test_kpi.raw_values,
                label="Control raw data", color="lightsteelblue")
-    ax[0].plot(dates, pred_anomaly, label="Predict data", color="lightcoral")
+    ax[0].plot(dates, pred_anomaly, label="Predication", color="lightcoral")
     ax[0].legend()
 
     # anomaly score
