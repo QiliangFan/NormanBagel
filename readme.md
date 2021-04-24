@@ -27,7 +27,7 @@ Originally from [bagel-tensorflow](https://github.com/AlumiK/bagel-tensorflow).
 ## 2. hyper_params.yaml
 > just some paramters...
 >
-> Want to know more? Just find the usage in python script, you will know it.
+> Want to know more? Just find the usage in python scripts, you will know it.
 
 ## 3. mad_threshold.yaml
 > This yaml file is used for mad algorithm. 
