@@ -246,30 +246,31 @@ class Bagel:
 
     def predict_step(self, data):
         test_loss, log_p_xz, _mean, _std = self._test_step(data[0], data[1], data[2])
-        return (-np.mean(log_p_xz[:, :, -1], axis=0),
-                np.mean(_mean[:, :, -1], axis=0),
-                np.mean(_std[:, :, -1], axis=0))
+        return -np.mean(log_p_xz[:, :, -1], axis=0)
+        # return (-np.mean(log_p_xz[:, :, -1], axis=0),
+        #         np.mean(_mean[:, :, -1], axis=0),
+        #         np.mean(_std[:, :, -1], axis=0))
 
     def predict_one(self,  kpi: bagel.data.KPI):
         """
         该函数用于测试在线推理时能够承受的指标数量(目标10w以上)
         """
+        kpi = kpi.no_labels()
         dataset = bagel.data.KPIDataset(kpi,
                                         window_size=self._window_size,
-                                        time_feature=self._time_feature,
-                                        missing_injection_rate=0.01).to_tensorflow()
-        dataset = dataset.shuffle(len(dataset)).batch(
+                                        time_feature=self._time_feature).to_tensorflow()
+        dataset = dataset.batch(
             1, drop_remainder=True).take(1)  # batch size 1, 只测试1次
         anomaly_scores = []
         x_mean = []
         x_std = []
         for in_data in dataset:
             res = self.predict_step(in_data)
-            anomaly_scores.extend(res[0])
-            x_mean.extend(res[1])
-            x_std.extend(res[2])
-            break
+            anomaly_scores.extend(res)
+            # anomaly_scores.extend(res[0])
+            # x_mean.extend(res[1])
+            # x_std.extend(res[2])
         anomaly_scores = np.asarray(anomaly_scores, dtype=np.float32)
-        x_mean = np.asarray(x_mean, dtype=np.float32)
-        x_std = np.asarray(x_std, dtype=np.float32)
+        # x_mean = np.asarray(x_mean, dtype=np.float32)
+        # x_std = np.asarray(x_std, dtype=np.float32)
         return anomaly_scores, x_mean, x_std

@@ -1,13 +1,13 @@
 import argparse
 import os
 
-# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import re
 import sys
 import traceback
 from glob import glob
 from multiprocessing import Pool
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, final
 
 import numpy as np
 import yaml
@@ -54,21 +54,11 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     time_feature = hyperparam["bagel"]["time_feature"]
     epochs = hyperparam["bagel"]["epochs"]
 
-    # mad hyperparams
-    mad_window_size = hyperparam["mad"]["window_size"]
-
-    # spot hyperparams
-    spot_init_num = hyperparam["spot"]["init_num"]
-
     study_train_file, control_train_file = train_files
     study_test_file, control_test_file = test_files
 
-    name = os.path.splitext(os.path.basename(study_train_file))[0]
-    svc = os.path.basename(os.path.dirname(study_train_file))
-
     model = bagel.Bagel(window_size=bagel_window_size,
                         time_feature=time_feature)
-
     # study group
     study_train_kpi = bagel.utils.load_kpi(study_train_file)
     study_test_kpi = bagel.utils.load_kpi(study_test_file)
@@ -85,7 +75,7 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     try:
         model.predict_one(study_test_kpi)
     except:
-        traceback.print_exc()
+        pass
 
 def main():
     # data_root 不推荐由程序来创建
@@ -101,16 +91,14 @@ def main():
     assert os.path.exists(train_root) and os.path.exists(
         test_root), f"{train_root} and {test_root} must exist all !"
 
-    num = 0
     # make_label(global_config, input_root, test_root)
     # exit(0)
-    with Pool(processes=1) as pool:
+    with Pool(processes=128) as pool:
         final_test_files = []
         final_train_files = []
         for case in os.listdir(test_root):
             if case.startswith("exclude"):
                 continue 
-            print(f"CASE: {case}")
             study_train_files = glob(os.path.join(
                 train_root, "**", "219", "**", "*.csv"), recursive=True)
             control_train_files = glob(os.path.join(
@@ -150,17 +138,27 @@ def main():
             final_test_files.extend(test_files)
             final_train_files.extend(train_files)
 
-            num += len(test_files)
+        final_test_files *= 600
+        final_train_files *= 600
+        final_test_files = final_test_files[:320000]
+        final_train_files = final_train_files[:320000]
         pool_params = [(train, test, hyperparam, fault_list)
                     for train, test in zip(final_train_files, final_test_files)]
-        pool.starmap(work, pool_params)
+        import time
+        start = time.time()
+        # pool.starmap(work, pool_params, chunksize=len(final_test_files)//(len(final_test_files)//2))
+        pool.starmap(work, pool_params, chunksize=2)
+        end = time.time()
+        print(f"Time cost: {end - start}s")
+
         pool.close()
         pool.join()
-        print(num)
+        print("Metric Num:", len(final_train_files))
 
 if __name__ == "__main__":
+    
     hyperparam = load_hyper_param()
     global_config = load_global_config()
     fault_list = global_config["fault_injection"]
-
     main()
+
