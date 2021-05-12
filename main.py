@@ -22,6 +22,7 @@ from tools.plot import integrate_plot
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
 CONFIG_ROOT = os.path.join(PROJECT_PATH, "configs")
 PARAM_SAVE = os.path.join(PROJECT_PATH, "variables")
+PLOT_FLAG = False
 
 
 def load_hyper_param():
@@ -106,37 +107,38 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
         train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
 
     # plot
-    try:
-        post_sub_path = study_test_file.split(os.path.sep)[-5:]
-        post_sub_path.remove("data")
-        if "219" in post_sub_path: post_sub_path.remove("219")
-        if "220" in post_sub_path: post_sub_path.remove("220")
-        save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
-        split_save_path = save_path.split(os.path.sep)
-        svc = split_save_path.pop(-2)
-        save_path = os.path.sep.join(split_save_path)
-        save_path = save_path.replace(".png", f"_{svc}.png")
-        study_test_ts = study_test_kpi.timestamps
-        change_ts = None
-        for fault in fault_list:
-            if fault["start"] >= np.min(study_test_ts) and fault["start"] <= np.max(study_test_ts):
-                change_ts = fault["start"] 
-                break
-        integrate_plot(study_test_kpi,
-                    control_test_kpi,
-                    anomaly_scores,
-                    x_mean,
-                    x_std,
-                    pred_label,
-                    spot_threshold,
-                    name,
-                    svc,
-                    save_path=save_path,
-                    change_ts=change_ts)
-    # 数据缺失时不画了
-    except:
-        print("\033[36m 数据缺失... \033[0m")
-        return
+    if PLOT_FLAG:
+        try:
+            post_sub_path = study_test_file.split(os.path.sep)[-5:]
+            post_sub_path.remove("data")
+            if "219" in post_sub_path: post_sub_path.remove("219")
+            if "220" in post_sub_path: post_sub_path.remove("220")
+            save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
+            split_save_path = save_path.split(os.path.sep)
+            svc = split_save_path.pop(-2)
+            save_path = os.path.sep.join(split_save_path)
+            save_path = save_path.replace(".png", f"_{svc}.png")
+            study_test_ts = study_test_kpi.timestamps
+            change_ts = None
+            for fault in fault_list:
+                if fault["start"] >= np.min(study_test_ts) and fault["start"] <= np.max(study_test_ts):
+                    change_ts = fault["start"] 
+                    break
+            integrate_plot(study_test_kpi,
+                        control_test_kpi,
+                        anomaly_scores,
+                        x_mean,
+                        x_std,
+                        pred_label,
+                        spot_threshold,
+                        name,
+                        svc,
+                        save_path=save_path,
+                        change_ts=change_ts)
+        # 数据缺失时不画了
+        except:
+            print("\033[36m 数据缺失... \033[0m")
+            return
 
 
 def main():
@@ -153,53 +155,55 @@ def main():
     assert os.path.exists(train_root) and os.path.exists(
         test_root), f"{train_root} and {test_root} must exist all !"
 
-    make_label(global_config, input_root, test_root)
-    for case in os.listdir(test_root):
-        if case.startswith("exclude"):
-            continue 
-        print(f"CASE: {case}")
-        study_train_files = glob(os.path.join(
-            train_root, "**", "219", "**", "*.csv"), recursive=True)
-        control_train_files = glob(os.path.join(
-            train_root, "**", "220", "**", "*.csv"), recursive=True)
-        study_test_files = glob(os.path.join(
-            test_root, case, "**", "219", "**", "*.csv"), recursive=True)
-        control_test_files = glob(os.path.join(
-            test_root, case, "**", "220", "**", "*.csv"), recursive=True)
+    num = 0
+    # make_label(global_config, input_root, test_root)
+    with Pool(processes=None) as pool:
+        for case in os.listdir(test_root):
+            if case.startswith("exclude"):
+                continue 
+            print(f"CASE: {case}")
+            study_train_files = glob(os.path.join(
+                train_root, "**", "219", "**", "*.csv"), recursive=True)
+            control_train_files = glob(os.path.join(
+                train_root, "**", "220", "**", "*.csv"), recursive=True)
+            study_test_files = glob(os.path.join(
+                test_root, case, "**", "219", "**", "*.csv"), recursive=True)
+            control_test_files = glob(os.path.join(
+                test_root, case, "**", "220", "**", "*.csv"), recursive=True)
 
-        # 训练\测试数据对照组和实验组内容对应
-        study_train_files = list(filter(lambda file: file.replace(
-            "219", "220") in control_train_files, study_train_files))
-        control_train_files = [file.replace("219", "220")
-                            for file in study_train_files]
-        study_test_files = list(filter(lambda file: file.replace(
-            "219", "220") in control_test_files, study_test_files))
-        control_test_files = [file.replace("219", "220")
-                            for file in study_test_files]
+            # 训练\测试数据对照组和实验组内容对应
+            study_train_files = list(filter(lambda file: file.replace(
+                "219", "220") in control_train_files, study_train_files))
+            control_train_files = [file.replace("219", "220")
+                                for file in study_train_files]
+            study_test_files = list(filter(lambda file: file.replace(
+                "219", "220") in control_test_files, study_test_files))
+            control_test_files = [file.replace("219", "220")
+                                for file in study_test_files]
 
-        # 训练数据和测试数据对照组\实验组相互对应
-        tmp = []
-        train_tmp = []
-        for f_test in study_test_files:
-            if filter_between_train_test(f_test, study_train_files, train_tmp):
-                tmp.append(f_test)
-                
-        study_test_files = tmp
-        study_train_files = train_tmp
-        control_test_files = [file.replace("219", "220")
-                            for file in study_test_files]
-        control_train_files = [file.replace("219", "220")
-                            for file in study_train_files]
+            # 训练数据和测试数据对照组\实验组相互对应
+            tmp = []
+            train_tmp = []
+            for f_test in study_test_files:
+                if filter_between_train_test(f_test, study_train_files, train_tmp):
+                    tmp.append(f_test)
+                    
+            study_test_files = tmp
+            study_train_files = train_tmp
+            control_test_files = [file.replace("219", "220")
+                                for file in study_test_files]
+            control_train_files = [file.replace("219", "220")
+                                for file in study_train_files]
 
-        test_files = list(zip(study_test_files, control_test_files))
-        train_files = list(zip(study_train_files, control_train_files))
-
-        pool_params = [(train, test, hyperparam, fault_list)
-                    for train, test in zip(train_files, test_files)]
-        with Pool(processes=12) as pool:
+            test_files = list(zip(study_test_files, control_test_files))
+            train_files = list(zip(study_train_files, control_train_files))
+            num += len(test_files)
+            pool_params = [(train, test, hyperparam, fault_list)
+                        for train, test in zip(train_files, test_files)]
             pool.starmap(work, pool_params)
-            pool.close()
-            pool.join()
+        pool.close()
+        pool.join()
+    print("number", num)
 
 
 if __name__ == "__main__":
