@@ -227,3 +227,29 @@ class Bagel:
 
     def load(self, prefix: str):
         self._checkpoint.read(prefix).expect_partial()
+
+    @tf.function
+    def predict_one(self,  kpi: bagel.data.KPI):
+        """
+        该函数用于测试在线推理时能够承受的指标数量(目标10w以上)
+        """
+        dataset = bagel.data.KPIDataset(kpi,
+                                        window_size=self._window_size,
+                                        time_feature=self._time_feature,
+                                        missing_injection_rate=0.01).to_tensorflow()
+        dataset = dataset.shuffle(len(dataset)).batch(1, drop_remainder=True)  # batch size 1
+        in_data = dataset[0]
+        anomaly_scores = []
+        x_mean = []
+        x_std = []
+        for in_data in dataset:
+            test_loss, log_p_xz, _mean, _std = self._test_step(*batch)
+            anomaly_scores.extend(-np.mean(log_p_xz[:, :, -1], axis=0))
+            x_mean.extend(np.mean(_mean[:, :, -1], axis=0))
+            x_std.extend(np.mean(_std[:, :, -1], axis=0))
+
+            # 只测试一次
+            anomaly_scores = np.asarray(anomaly_scores, dtype=np.float32)
+            x_mean = np.asarray(x_mean, dtype=np.float32)
+            x_std = np.asarray(x_std, dtype=np.float32)
+            return anomaly_scores, x_mean, x_std

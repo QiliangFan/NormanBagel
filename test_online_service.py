@@ -48,7 +48,6 @@ def filter_between_train_test(path: str, file_list: Sequence[str], train_tmp: Li
             return True
     return False
 
-
 def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: dict, fault_list: List[dict]):
     # bagel hyperparams
     bagel_window_size = hyperparam["bagel"]["window_size"]
@@ -83,63 +82,9 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     else:
         model.fit(study_train_kpi, epochs=epochs, verbose=0)
         model.save(study_model_save_path)
-    try:
-        anomaly_scores, x_mean, x_std = model.predict(study_test_kpi, verbose=0)
-        train_data_anoamly_sc, _, _ = model.predict(study_train_kpi, verbose=0)
-    except:
-        print("\033[36m 数据缺失... \033[0m")
-        return
-
-    # control group
-    control_train_kpi = bagel.utils.load_kpi(control_train_file)
-    control_test_kpi = bagel.utils.load_kpi(control_test_file)
-
-    # remove window_size - 1 points ahead
-    _, study_test_kpi = study_test_kpi.split_by_indices(bagel_window_size-1)
-    _, control_test_kpi = control_test_kpi.split_by_indices(
-        bagel_window_size-1)
-
-    # mad
-    mad_filter = mad(study_test_kpi.raw_values, name, mad_window_size)
-
-    # spot
-    pred_label, spot_threshold = run_spot(
-        train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
-
-    # plot
-    if PLOT_FLAG:
-        try:
-            post_sub_path = study_test_file.split(os.path.sep)[-5:]
-            post_sub_path.remove("data")
-            if "219" in post_sub_path: post_sub_path.remove("219")
-            if "220" in post_sub_path: post_sub_path.remove("220")
-            save_path = os.path.join(PROJECT_PATH, "img", os.path.sep.join(post_sub_path)).replace("csv", "png")
-            split_save_path = save_path.split(os.path.sep)
-            svc = split_save_path.pop(-2)
-            save_path = os.path.sep.join(split_save_path)
-            save_path = save_path.replace(".png", f"_{svc}.png")
-            study_test_ts = study_test_kpi.timestamps
-            change_ts = None
-            for fault in fault_list:
-                if fault["start"] >= np.min(study_test_ts) and fault["start"] <= np.max(study_test_ts):
-                    change_ts = fault["start"] 
-                    break
-            integrate_plot(study_test_kpi,
-                        control_test_kpi,
-                        anomaly_scores,
-                        x_mean,
-                        x_std,
-                        pred_label,
-                        spot_threshold,
-                        name,
-                        svc,
-                        save_path=save_path,
-                        change_ts=change_ts)
-        # 数据缺失时不画了
-        except:
-            print("\033[36m 数据缺失... \033[0m")
-            return
-
+    
+    model.predict_one(study_test_kpi)
+    
 
 def main():
     # data_root 不推荐由程序来创建
@@ -204,8 +149,6 @@ def main():
             pool.starmap(work, pool_params)
         pool.close()
         pool.join()
-    print("number", num)
-
 
 if __name__ == "__main__":
     hyperparam = load_hyper_param()
