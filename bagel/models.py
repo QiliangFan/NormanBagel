@@ -238,7 +238,6 @@ class Bagel:
                                         time_feature=self._time_feature,
                                         missing_injection_rate=0.01).to_tensorflow()
         dataset = dataset.shuffle(len(dataset)).batch(1, drop_remainder=True)  # batch size 1
-        in_data = dataset[0]
         anomaly_scores = []
         x_mean = []
         x_std = []

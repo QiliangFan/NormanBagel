@@ -101,8 +101,8 @@ def main():
         test_root), f"{train_root} and {test_root} must exist all !"
 
     num = 0
-    make_label(global_config, input_root, test_root)
-    exit(0)
+    # make_label(global_config, input_root, test_root)
+    # exit(0)
     with Pool(processes=None) as pool:
         for case in os.listdir(test_root):
             if case.startswith("exclude"):
