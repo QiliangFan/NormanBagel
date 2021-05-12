@@ -15,10 +15,13 @@ class AutoencoderLayer(tf.keras.layers.Layer):
         self._hidden = tf.keras.Sequential()
         for hidden_dim in hidden_dims:
             self._hidden.add(
-                tf.keras.layers.Dense(hidden_dim, activation='relu', kernel_regularizer=tf.keras.regularizers.L2(0.001))
+                tf.keras.layers.Dense(
+                    hidden_dim, activation='relu', kernel_regularizer=tf.keras.regularizers.L2(0.001))
             )
-        self._mean = tf.keras.layers.Dense(output_dim, kernel_regularizer=tf.keras.regularizers.L2(0.001))
-        self._std = tf.keras.layers.Dense(output_dim, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        self._mean = tf.keras.layers.Dense(
+            output_dim, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        self._std = tf.keras.layers.Dense(
+            output_dim, kernel_regularizer=tf.keras.regularizers.L2(0.001))
 
     def call(self, inputs, **kwargs):
         x = self._hidden(inputs)
@@ -40,8 +43,10 @@ class ConditionalVariationalAutoencoder(tf.keras.Model):
         concatted = tf.keras.layers.Concatenate()([x, y])
         z_mean, z_std = self._encoder(concatted)
         q_zx = tfp.distributions.Normal(z_mean, z_std)
-        p_z = tfp.distributions.Normal(tf.zeros(z_mean.shape), tf.ones(z_std.shape))
-        z = p_z.sample((n_samples,)) * tf.expand_dims(z_std, 0) + tf.expand_dims(z_mean, 0)
+        p_z = tfp.distributions.Normal(
+            tf.zeros(z_mean.shape), tf.ones(z_std.shape))
+        z = p_z.sample((n_samples,)) * tf.expand_dims(z_std,
+                                                      0) + tf.expand_dims(z_mean, 0)
         y = tf.broadcast_to(y, [n_samples, y.shape[0], y.shape[1]])
         concatted = tf.keras.layers.Concatenate()([z, y])
         x_mean, x_std = self._decoder(concatted)
@@ -66,17 +71,21 @@ class Bagel:
         self._dropout_rate = dropout_rate
         self._model = ConditionalVariationalAutoencoder(
             encoder=AutoencoderLayer(hidden_dims, latent_dim),
-            decoder=AutoencoderLayer(list(reversed(hidden_dims)), self._window_size),
+            decoder=AutoencoderLayer(
+                list(reversed(hidden_dims)), self._window_size),
         )
-        self._p_z = tfp.distributions.Normal(tf.zeros(latent_dim), tf.ones(latent_dim))
+        self._p_z = tfp.distributions.Normal(
+            tf.zeros(latent_dim), tf.ones(latent_dim))
         lr_scheduler = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=10000,
             decay_rate=0.75,
             staircase=True
         )
-        self._optimizer = tf.keras.optimizers.Adam(learning_rate=lr_scheduler, clipnorm=10.)
-        self._checkpoint = tf.train.Checkpoint(model=self._model, optimizer=self._optimizer)
+        self._optimizer = tf.keras.optimizers.Adam(
+            learning_rate=lr_scheduler, clipnorm=10.)
+        self._checkpoint = tf.train.Checkpoint(
+            model=self._model, optimizer=self._optimizer)
 
     @staticmethod
     def _m_elbo(x: tf.Tensor,
@@ -101,24 +110,27 @@ class Bagel:
             x = tf.where(cond, x, reconstruction)
         return x
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def _train_step(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor) -> tf.Tensor:
         with tf.GradientTape() as tape:
             y = tf.keras.layers.Dropout(self._dropout_rate)(y)
             q_zx, p_xz, z, _, _ = self._model([x, y])
             loss = -self._m_elbo(x, z, normal, q_zx, self._p_z, p_xz)
             loss += tf.math.add_n(self._model.losses)
-        self._optimizer.minimize(loss, self._model.trainable_weights, tape=tape)
+        self._optimizer.minimize(
+            loss, self._model.trainable_weights, tape=tape)
         return loss
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def _validation_step(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor) -> tf.Tensor:
         q_zx, p_xz, z, _, _ = self._model([x, y])
         val_loss = -self._m_elbo(x, z, normal, q_zx, self._p_z, p_xz)
         val_loss += tf.math.add_n(self._model.losses)
         return val_loss
 
-    @tf.function
+    # @tf.function(
+    #     experimental_relax_shapes=True,
+    # )
     def _test_step(self, x: tf.Tensor, y: tf.Tensor, normal: tf.Tensor) -> Tuple[tf.Tensor, np.ndarray]:
         x = self._missing_imputation(x, y, normal)
         q_zx, p_xz, z, x_mean, x_std = self._model([x, y], n_samples=128)
@@ -136,13 +148,15 @@ class Bagel:
                                         window_size=self._window_size,
                                         time_feature=self._time_feature,
                                         missing_injection_rate=0.01).to_tensorflow()
-        dataset = dataset.shuffle(len(dataset)).batch(batch_size, drop_remainder=True)
+        dataset = dataset.shuffle(len(dataset)).batch(
+            batch_size, drop_remainder=True)
         validation_dataset = None
         if validation_kpi is not None:
             validation_dataset = bagel.data.KPIDataset(validation_kpi,
                                                        window_size=self._window_size,
                                                        time_feature=self._time_feature).to_tensorflow()
-            validation_dataset = validation_dataset.shuffle(len(validation_dataset)).batch(batch_size)
+            validation_dataset = validation_dataset.shuffle(
+                len(validation_dataset)).batch(batch_size)
 
         losses = []
         val_losses = []
@@ -152,7 +166,8 @@ class Bagel:
             print('Training Epochs')
             progbar = tf.keras.utils.Progbar(epochs,
                                              interval=0.5,
-                                             stateful_metrics=['loss', 'val_loss'],
+                                             stateful_metrics=[
+                                                 'loss', 'val_loss'],
                                              unit_name='epoch')
 
         for epoch in range(epochs):
@@ -163,7 +178,8 @@ class Bagel:
             if verbose == 2:
                 print(f'Training Epoch {epoch + 1}/{epochs}')
                 progbar = tf.keras.utils.Progbar(
-                    target=len(dataset) + (0 if validation_kpi is None else len(validation_dataset)),
+                    target=len(
+                        dataset) + (0 if validation_kpi is None else len(validation_dataset)),
                     interval=0.5
                 )
 
@@ -228,7 +244,12 @@ class Bagel:
     def load(self, prefix: str):
         self._checkpoint.read(prefix).expect_partial()
 
-    @tf.function
+    def predict_step(self, data):
+        test_loss, log_p_xz, _mean, _std = self._test_step(data[0], data[1], data[2])
+        return (-np.mean(log_p_xz[:, :, -1], axis=0),
+                np.mean(_mean[:, :, -1], axis=0),
+                np.mean(_std[:, :, -1], axis=0))
+
     def predict_one(self,  kpi: bagel.data.KPI):
         """
         该函数用于测试在线推理时能够承受的指标数量(目标10w以上)
@@ -237,19 +258,18 @@ class Bagel:
                                         window_size=self._window_size,
                                         time_feature=self._time_feature,
                                         missing_injection_rate=0.01).to_tensorflow()
-        dataset = dataset.shuffle(len(dataset)).batch(1, drop_remainder=True)  # batch size 1
-        in_data = dataset[0]
+        dataset = dataset.shuffle(len(dataset)).batch(
+            1, drop_remainder=True).take(1)  # batch size 1, 只测试1次
         anomaly_scores = []
         x_mean = []
         x_std = []
         for in_data in dataset:
-            test_loss, log_p_xz, _mean, _std = self._test_step(*batch)
-            anomaly_scores.extend(-np.mean(log_p_xz[:, :, -1], axis=0))
-            x_mean.extend(np.mean(_mean[:, :, -1], axis=0))
-            x_std.extend(np.mean(_std[:, :, -1], axis=0))
-
-            # 只测试一次
-            anomaly_scores = np.asarray(anomaly_scores, dtype=np.float32)
-            x_mean = np.asarray(x_mean, dtype=np.float32)
-            x_std = np.asarray(x_std, dtype=np.float32)
-            return anomaly_scores, x_mean, x_std
+            res = self.predict_step(in_data)
+            anomaly_scores.extend(res[0])
+            x_mean.extend(res[1])
+            x_std.extend(res[2])
+            break
+        anomaly_scores = np.asarray(anomaly_scores, dtype=np.float32)
+        x_mean = np.asarray(x_mean, dtype=np.float32)
+        x_std = np.asarray(x_std, dtype=np.float32)
+        return anomaly_scores, x_mean, x_std

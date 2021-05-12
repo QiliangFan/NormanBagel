@@ -1,4 +1,4 @@
-DATA_ROOT: /home/fanqiliang/data/istio
+DATA_ROOT: /home/fanqiliang_be/data/istio
 fault_injection: 
   - start: 1614765889  # 0304_abort
     end: 1614773029

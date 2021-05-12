@@ -1,7 +1,7 @@
 import argparse
 import os
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import re
 import sys
 import traceback
@@ -82,9 +82,10 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     else:
         model.fit(study_train_kpi, epochs=epochs, verbose=0)
         model.save(study_model_save_path)
-    
-    model.predict_one(study_test_kpi)
-    
+    try:
+        model.predict_one(study_test_kpi)
+    except:
+        traceback.print_exc()
 
 def main():
     # data_root 不推荐由程序来创建
@@ -101,9 +102,11 @@ def main():
         test_root), f"{train_root} and {test_root} must exist all !"
 
     num = 0
-    make_label(global_config, input_root, test_root)
-    exit(0)
-    with Pool(processes=None) as pool:
+    # make_label(global_config, input_root, test_root)
+    # exit(0)
+    with Pool(processes=1) as pool:
+        final_test_files = []
+        final_train_files = []
         for case in os.listdir(test_root):
             if case.startswith("exclude"):
                 continue 
@@ -143,12 +146,17 @@ def main():
 
             test_files = list(zip(study_test_files, control_test_files))
             train_files = list(zip(study_train_files, control_train_files))
+
+            final_test_files.extend(test_files)
+            final_train_files.extend(train_files)
+
             num += len(test_files)
-            pool_params = [(train, test, hyperparam, fault_list)
-                        for train, test in zip(train_files, test_files)]
-            pool.starmap(work, pool_params)
+        pool_params = [(train, test, hyperparam, fault_list)
+                    for train, test in zip(final_train_files, final_test_files)]
+        pool.starmap(work, pool_params)
         pool.close()
         pool.join()
+        print(num)
 
 if __name__ == "__main__":
     hyperparam = load_hyper_param()
