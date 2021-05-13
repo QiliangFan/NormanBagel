@@ -264,7 +264,9 @@ class Bagel:
         anomaly_scores = []
         x_mean = []
         x_std = []
+        pred_data = None
         for in_data in dataset:
+            pred_data = in_data
             res = self.predict_step(in_data)
             anomaly_scores.extend(res)
             # anomaly_scores.extend(res[0])
@@ -273,4 +275,4 @@ class Bagel:
         anomaly_scores = np.asarray(anomaly_scores, dtype=np.float32)
         # x_mean = np.asarray(x_mean, dtype=np.float32)
         # x_std = np.asarray(x_std, dtype=np.float32)
-        return anomaly_scores, x_mean, x_std
+        return anomaly_scores, x_mean, x_std, pred_data

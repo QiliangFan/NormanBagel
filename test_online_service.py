@@ -73,7 +73,11 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
         model.fit(study_train_kpi, epochs=epochs, verbose=0)
         model.save(study_model_save_path)
     try:
-        model.predict_one(study_test_kpi)
+        _, _, _, pred_data = model.predict_one(study_test_kpi)
+
+        mad_filter = np.zeros_like(pred_data[0].numpy()[0])
+        mad_filter[-1] = 1
+        run_spot(study_train_kpi.values[-1000:], pred_data[0].numpy()[0], mad_filter)
     except:
         pass
 
@@ -93,7 +97,7 @@ def main():
 
     # make_label(global_config, input_root, test_root)
     # exit(0)
-    with Pool(processes=128) as pool:
+    with Pool(processes=None) as pool:
         final_test_files = []
         final_train_files = []
         for case in os.listdir(test_root):
@@ -140,8 +144,8 @@ def main():
 
         final_test_files *= 600
         final_train_files *= 600
-        final_test_files = final_test_files[:320000]
-        final_train_files = final_train_files[:320000]
+        final_test_files = final_test_files[:5000]
+        final_train_files = final_train_files[:5000]
         pool_params = [(train, test, hyperparam, fault_list)
                     for train, test in zip(final_train_files, final_test_files)]
         import time
