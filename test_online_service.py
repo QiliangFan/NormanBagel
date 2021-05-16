@@ -75,9 +75,10 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     try:
         _, _, _, pred_data = model.predict_one(study_test_kpi)
 
-        mad_filter = np.zeros_like(pred_data[0].numpy()[0])
-        mad_filter[-1] = 1
-        run_spot(study_train_kpi.values[-1000:], pred_data[0].numpy()[0], mad_filter)
+        # for SPOT
+        # mad_filter = np.zeros_like(pred_data[0].numpy()[0])
+        # mad_filter[-1] = 1
+        # run_spot(study_train_kpi.values[-1000:], pred_data[0].numpy()[0], mad_filter)
     except:
         pass
 
