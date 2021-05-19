@@ -75,10 +75,6 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     try:
         _, _, _, pred_data = model.predict_one(study_test_kpi)
 
-        # for SPOT
-        # mad_filter = np.zeros_like(pred_data[0].numpy()[0])
-        # mad_filter[-1] = 1
-        # run_spot(study_train_kpi.values[-1000:], pred_data[0].numpy()[0], mad_filter)
     except:
         pass
 
@@ -145,8 +141,8 @@ def main():
 
         final_test_files *= 600
         final_train_files *= 600
-        final_test_files = final_test_files[:5000]
-        final_train_files = final_train_files[:5000]
+        final_test_files = final_test_files[:10000]
+        final_train_files = final_train_files[:10000]
         pool_params = [(train, test, hyperparam, fault_list)
                     for train, test in zip(final_train_files, final_test_files)]
         import time

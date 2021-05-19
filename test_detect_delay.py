@@ -22,7 +22,7 @@ from tools.plot import integrate_plot
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
 CONFIG_ROOT = os.path.join(PROJECT_PATH, "configs")
 PARAM_SAVE = os.path.join(PROJECT_PATH, "variables")
-PLOT_FLAG = False
+PLOT_FLAG = True
 
 
 def load_hyper_param():
@@ -103,8 +103,12 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     mad_filter = mad(study_test_kpi.raw_values, name, mad_window_size)
 
     # spot
-    pred_label, spot_threshold = run_spot(
-        train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
+    try:
+        pred_label, spot_threshold, detect_idx = run_spot(
+            train_data_anoamly_sc[-spot_init_num:], anomaly_scores, mad_filter)
+    except:
+        print("error")
+        return
 
     # plot
     if PLOT_FLAG:
@@ -124,18 +128,13 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
                 if fault["start"] >= np.min(study_test_ts) and fault["start"] <= np.max(study_test_ts):
                     change_ts = fault["start"] 
                     break
-            integrate_plot(study_test_kpi,
-                        control_test_kpi,
-                        anomaly_scores,
-                        x_mean,
-                        x_std,
-                        pred_label,
-                        spot_threshold,
-                        name,
-                        svc,
-                        save_path=save_path,
-                        change_ts=change_ts)
-        # 数据缺失时不画了
+            change_idx = np.where(control_test_kpi.timestamps >= change_ts)[0]
+            if detect_idx != -1:
+                deta = detect_idx - change_idx
+                print("yes")
+                return deta
+            else:
+                print("no")
         except:
             print("\033[36m 数据缺失... \033[0m")
             return
@@ -158,7 +157,7 @@ def main():
     num = 0
     make_label(global_config, input_root, test_root)
     # exit(0)
-    with Pool(processes=1) as pool:
+    with Pool(processes=None) as pool:
         final_test_files = []
         final_train_files = []
         for case in os.listdir(test_root):
@@ -207,7 +206,12 @@ def main():
             num += len(test_files)
         pool_params = [(train, test, hyperparam, fault_list)
                     for train, test in zip(final_train_files, final_test_files)]
-        pool.starmap(work, pool_params)
+        res = pool.starmap(work, pool_params)
+        res = [item for item in res if item is not None]
+        print(res)
+        with open("output.txt", "a") as fp:
+            for r in res:
+                print(r, file=fp)
         pool.close()
         pool.join()
         print(num)

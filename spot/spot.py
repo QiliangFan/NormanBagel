@@ -228,8 +228,8 @@ class SPOT:
         """
         if method == 'regular':
             step = (bounds[1]-bounds[0])/(npoints+1)
-            # X0 = np.arange(bounds[0]+step, bounds[1], step)
-            X0 = np.linspace(bounds[0], bounds[1], npoints+1)
+            X0 = np.arange(bounds[0]+step, bounds[1], step)
+            # X0 = np.linspace(bounds[0], bounds[1], npoints+1)
         elif method == 'random':
             X0 = np.random.uniform(bounds[0], bounds[1], npoints)
 
@@ -273,7 +273,7 @@ class SPOT:
         n = Y.size
         if gamma != 0:
             tau = gamma/sigma
-            L = -n * log(sigma) - (1 + (1/gamma)) * (np.log(1+tau*Y)).sum()
+            L = -n * log(sigma) - (1 + (1/(gamma))) * (np.log(1+tau*Y)).sum()
         else:
             L = n * (1 + log(Y.mean()))
         return L
@@ -295,10 +295,10 @@ class SPOT:
             gamma estimates, sigma estimates and corresponding log-likelihood
         """
         def u(s):
-            return 1 + np.log(s+1).mean()
+            return 1 + np.log(s).mean()
 
         def v(s):
-            return np.mean(1/(s + 1e-6))
+            return np.mean(1/s)
 
         def w(Y, t):
             s = 1+t*Y
@@ -310,8 +310,8 @@ class SPOT:
             s = 1+t*Y
             us = u(s)
             vs = v(s)
-            jac_us = (1/(t + 1e-6))*(1-vs)
-            jac_vs = (1/(t + 1e-6))*(-vs+np.mean(1/(s**2 + 1e-6)))
+            jac_us = (1/t)*(1-vs)
+            jac_vs = (1/t)*(-vs+np.mean(1/s**2))
             return us*jac_vs+vs*jac_us
 
         Ym = self.peaks.min()
