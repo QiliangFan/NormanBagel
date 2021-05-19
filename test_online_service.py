@@ -20,13 +20,14 @@ from tools.plot import integrate_plot
 
 # path
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
-CONFIG_ROOT = os.path.join(PROJECT_PATH, "configs")
-PARAM_SAVE = os.path.join(PROJECT_PATH, "variables")
+CONFIG_ROOT = os.path.join(PROJECT_PATH, "configs").replace("\\", "/")
+PARAM_SAVE = os.path.join(PROJECT_PATH, "variables").replace("\\", "/")
 PLOT_FLAG = False
 
 
 def load_hyper_param():
     hyperparam_path = os.path.join(CONFIG_ROOT, "hyper_params.yaml")
+    hyperparam_path = hyperparam_path.replace("\\", "/")
     with open(hyperparam_path, "r") as fp:
         hyperparam = yaml.load(fp, Loader=yaml.FullLoader)
     return hyperparam
@@ -34,6 +35,7 @@ def load_hyper_param():
 
 def load_global_config():
     global_config_path = os.path.join(CONFIG_ROOT, "global_config.yaml")
+    global_config_path = global_config_path.replace("\\", "/")
     with open(global_config_path, "r") as fp:
         global_config = yaml.load(fp, Loader=yaml.FullLoader)
     return global_config
@@ -64,10 +66,10 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
     study_test_kpi = bagel.utils.load_kpi(study_test_file)
 
     # load model param
-    study_sign = "_".join(study_train_file.split(os.path.sep)[2:])
+    study_sign = "_".join(study_train_file.split(os.path.sep)[2:]).replace("\\", "/")
     study_model_save_path = os.path.join(
-        PROJECT_PATH, "variables", study_sign)
-    if os.path.exists(os.path.join(PROJECT_PATH, "variables", study_sign + ".index")):
+        PROJECT_PATH, "variables", study_sign).replace("\\", "/")
+    if os.path.exists(os.path.join(PROJECT_PATH, "variables", study_sign + ".index").replace("\\", "/")):
         model.load(study_model_save_path)
     else:
         model.fit(study_train_kpi, epochs=epochs, verbose=0)
@@ -85,8 +87,8 @@ def main():
 
     assert os.path.exists(
         data_root), f"data root must exists, but {data_root} is not found..."
-    train_root = os.path.join(data_root, "train")
-    test_root = os.path.join(data_root, "test")
+    train_root = os.path.join(data_root, "train").replace("\\", "/")
+    test_root = os.path.join(data_root, "test").replace("\\", "/")
     # input_root = os.path.join(data_root, "input")
     input_root = "/home/sharespace/fanqiliang/istio"
     assert os.path.exists(train_root) and os.path.exists(
@@ -101,22 +103,26 @@ def main():
             if case.startswith("exclude"):
                 continue 
             study_train_files = glob(os.path.join(
-                train_root, "**", "219", "**", "*.csv"), recursive=True)
+                train_root, "**", "219", "**", "*.csv").replace("\\", "/"), recursive=True)
+            study_train_files = [_.replace("\\", "/") for _ in study_train_files]
             control_train_files = glob(os.path.join(
-                train_root, "**", "220", "**", "*.csv"), recursive=True)
+                train_root, "**", "220", "**", "*.csv").replace("\\", "/"), recursive=True)
+            control_train_files = [_.replace("\\", "/") for _ in control_train_files]
             study_test_files = glob(os.path.join(
-                test_root, case, "**", "219", "**", "*.csv"), recursive=True)
+                test_root, case, "**", "219", "**", "*.csv").replace("\\", "/"), recursive=True)
+            study_test_files = [_.replace("\\", "/") for _ in study_test_files]
             control_test_files = glob(os.path.join(
-                test_root, case, "**", "220", "**", "*.csv"), recursive=True)
+                test_root, case, "**", "220", "**", "*.csv").replace("\\", "/"), recursive=True)
+            control_test_files = [_.replace("\\", "/") for _ in control_test_files]
 
             # 训练\测试数据对照组和实验组内容对应
             study_train_files = list(filter(lambda file: file.replace(
-                "219", "220") in control_train_files, study_train_files))
-            control_train_files = [file.replace("219", "220")
+                "219", "220").replace("\\", "/") in control_train_files, study_train_files))
+            control_train_files = [file.replace("219", "220").replace("\\", "/")
                                 for file in study_train_files]
             study_test_files = list(filter(lambda file: file.replace(
-                "219", "220") in control_test_files, study_test_files))
-            control_test_files = [file.replace("219", "220")
+                "219", "220").replace("\\", "/") in control_test_files, study_test_files))
+            control_test_files = [file.replace("219", "220").replace("\\", "/")
                                 for file in study_test_files]
 
             # 训练数据和测试数据对照组\实验组相互对应
