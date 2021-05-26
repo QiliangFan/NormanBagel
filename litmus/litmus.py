@@ -31,7 +31,7 @@ class Litmus(Model):
         ])
 
     @staticmethod
-    def run(change_idx: int, study_data: np.ndarray, control_data: np.ndarray, ts: np.ndarray) -> Tuple[Union[float, np.ndarray], float, np.ndarray]:
+    def run(change_idx: int, study_data: np.ndarray, control_data: np.ndarray, ts: np.ndarray = None) -> Tuple[Union[float, np.ndarray], float, np.ndarray]:
         """
         Recommendation: 
         >>> len(study_data) == len(control_data)

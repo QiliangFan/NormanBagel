@@ -128,10 +128,12 @@ def work(train_files: Tuple[str, str], test_files: Tuple[str, str], hyperparam: 
                 if fault["start"] >= np.min(study_test_ts) and fault["start"] <= np.max(study_test_ts):
                     change_ts = fault["start"] 
                     break
-            change_idx = np.where(control_test_kpi.timestamps >= change_ts)[0]
+            change_idx = np.where(control_test_kpi.timestamps >= change_ts)[0][0]
             if detect_idx != -1:
                 deta = detect_idx - change_idx
-                print("yes")
+                print(f"{deta}")
+                if deta < 0: deta = 0
+                if deta > 30: return
                 return deta
             else:
                 print("no")
